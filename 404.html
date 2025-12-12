@@ -2,28 +2,45 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Redirecting...</title>
+    <title>Trace CRM - Redirecting...</title>
     <script>
-      // SPA fallback for GitHub Pages
+      // SPA fallback for GitHub Pages - handles refresh on any route
       (function() {
         var base = "/Trace.V.02";
         var path = window.location.pathname;
-        // Strip base if already present
+        var search = window.location.search;
+        var hash = window.location.hash;
+        
+        // Remove base path if present
         if (path.startsWith(base)) {
           path = path.slice(base.length);
         }
-        var newUrl = base + "/" + path.replace(/^\/+/, "");
-        if (!newUrl.endsWith("/")) {
-          newUrl = newUrl.replace(/\/+$/, "");
+        
+        // Ensure path starts with /
+        if (!path.startsWith('/')) {
+          path = '/' + path;
         }
-        // Preserve query/hash
-        newUrl += window.location.search + window.location.hash;
-        window.location.replace(newUrl || base + "/");
+        
+        // Build new URL
+        var newUrl = base + path;
+        
+        // Add search and hash
+        if (search) newUrl += search;
+        if (hash) newUrl += hash;
+        
+        // Redirect to index.html which will handle routing
+        if (path === '/' || path === '') {
+          window.location.replace(base + '/index.html' + search + hash);
+        } else {
+          window.location.replace(base + '/index.html' + search + hash);
+        }
       })();
     </script>
   </head>
   <body>
-    Redirecting...
+    <div style="font-family: Inter, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; color: #64748b;">
+      Redirecting...
+    </div>
   </body>
 </html>
 
