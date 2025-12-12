@@ -1,5 +1,4 @@
 <div align="center">
-  <img width="1200" alt="Trace CRM Banner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
   <h1>Trace CRM Dashboard</h1>
   <p>Modern CRM & pipeline dashboard built with React + Vite</p>
   <a href="https://kishor-irnak.github.io/Trace.V.02/"><strong>Live Demo (GitHub Pages)</strong></a>
@@ -53,12 +52,6 @@ Trace CRM is a single-page dashboard that showcases pipeline health, recent lead
 
 1) Install dependencies  
 `npm install`
-
-2) (Optional) Set your Gemini API key if you plan to call Gemini later  
-Create `.env.local` and set:
-```
-GEMINI_API_KEY=your-key-here
-```
 
 3) Run locally  
 `npm run dev`  
