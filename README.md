@@ -46,6 +46,8 @@ Trace CRM is a single-page dashboard that showcases pipeline health, recent lead
 ├── components/          # Layout, LeadDrawer, UI primitives (GlassCard)
 ├── pages/               # Dashboard, Pipeline, Leads, Billing, Settings
 ├── services/crmService.ts  # Firebase Realtime Database service
+├── services/authService.ts # Firebase Auth helpers
+├── services/firebase.ts    # Firebase app/auth/db initialization
 ├── constants.ts         # Pipeline stage metadata
 ├── types.ts             # Shared TypeScript types
 ├── vite.config.ts       # Vite + base path for GitHub Pages
@@ -59,15 +61,26 @@ Trace CRM is a single-page dashboard that showcases pipeline health, recent lead
 1. Install dependencies  
    `npm install`
 
-2. Configure Firebase Realtime Database (required)  
+2. Configure Firebase Realtime Database & Auth (required)  
    Create `.env.local` and set:
+   ```
+   VITE_FIREBASE_API_KEY=your-api-key
+   VITE_FIREBASE_AUTH_DOMAIN=your-auth-domain
+   VITE_FIREBASE_DATABASE_URL=your-db-url
+   VITE_FIREBASE_PROJECT_ID=your-project-id
+   VITE_FIREBASE_STORAGE_BUCKET=your-storage-bucket
+   VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
+   VITE_FIREBASE_APP_ID=your-app-id
+   VITE_FIREBASE_MEASUREMENT_ID=optional-measurement-id
+   GEMINI_API_KEY=optional-if-you-use-gemini
+   ```
 
 
 ## Environment Variables
 
 The build injects:
 
-- `VITE_FIREBASE_*` (Realtime Database + app config)
+- `VITE_FIREBASE_*` (Realtime Database + Auth config; keys are public in client apps)
 - `GEMINI_API_KEY` (exposed as `process.env.GEMINI_API_KEY`; optional)
 - `API_KEY` (mirrors GEMINI key for compatibility)
 

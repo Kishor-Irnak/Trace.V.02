@@ -9,6 +9,7 @@ interface LayoutProps {
   currentPath: string;
   onNavigate: (path: string) => void;
   user: UserProfile;
+  onSignOut?: () => void;
 }
 
 const SidebarItem = ({ to, icon: Icon, label, isActive, onClick }: { to: string, icon: any, label: string, isActive: boolean, onClick: (path: string) => void }) => {
@@ -27,7 +28,7 @@ const SidebarItem = ({ to, icon: Icon, label, isActive, onClick }: { to: string,
   );
 };
 
-export const Layout: React.FC<LayoutProps> = ({ children, onNewLead, currentPath, onNavigate, user }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, onNewLead, currentPath, onNavigate, user, onSignOut }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const getPageTitle = () => {
@@ -95,14 +96,22 @@ export const Layout: React.FC<LayoutProps> = ({ children, onNewLead, currentPath
         </div>
 
         <div className="mt-auto p-4 border-t border-border">
-          <div className="flex items-center gap-3 px-1 cursor-pointer hover:bg-slate-50 p-2 rounded-md transition-colors">
-            <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-xs font-medium text-slate-600">
+          <div className="flex items-center gap-2 px-1">
+            <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center text-xs font-semibold text-slate-700">
               {user.avatar}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-medium truncate text-slate-900">{user.name}</p>
               <p className="text-[10px] text-slate-500 truncate">{user.plan}</p>
             </div>
+            {onSignOut && (
+              <button
+                onClick={onSignOut}
+                className="text-[10px] font-semibold text-slate-500 hover:text-slate-900 border border-slate-200 px-2 py-1 rounded-md transition"
+              >
+                Sign out
+              </button>
+            )}
           </div>
         </div>
       </aside>
