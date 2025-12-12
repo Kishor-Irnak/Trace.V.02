@@ -9,8 +9,21 @@ import { LeadDrawer } from './components/LeadDrawer';
 import { UserProfile } from './types';
 
 const App: React.FC = () => {
-  // Default to root path to avoid issues with blob URL paths in restricted environments
-  const [currentPath, setCurrentPath] = useState('/');
+  const basePath = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '');
+  const allowedPaths = ['/', '/pipeline', '/leads', '/billing', '/settings'];
+
+  const normalizeAppPath = (pathname: string) => {
+    const withoutBase = pathname.startsWith(basePath) ? pathname.slice(basePath.length) : pathname;
+    const appPath = withoutBase.startsWith('/') ? withoutBase : `/${withoutBase}`;
+    return allowedPaths.includes(appPath) ? appPath : '/';
+  };
+
+  const buildFullPath = (appPath: string) => {
+    const normalized = appPath.startsWith('/') ? appPath : `/${appPath}`;
+    return `${basePath || ''}${normalized}`;
+  };
+
+  const [currentPath, setCurrentPath] = useState<string>(() => normalizeAppPath(window.location.pathname));
   const [isLeadDrawerOpen, setIsLeadDrawerOpen] = useState(false);
 
   // User State for Real-time Profile Updates
@@ -23,25 +36,22 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const handlePopState = () => {
-      // In restricted environments, pathname might not reflect app route or might be a blob path
-      // Only update if it looks like a valid app route
-      const path = window.location.pathname;
-      if (['/', '/pipeline', '/leads', '/billing', '/settings'].includes(path)) {
-        setCurrentPath(path);
-      }
+      setCurrentPath(normalizeAppPath(window.location.pathname));
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
   const navigate = (path: string) => {
+    const appPath = allowedPaths.includes(path) ? path : '/';
+    const fullPath = buildFullPath(appPath);
     try {
-      window.history.pushState({}, '', path);
+      window.history.pushState({}, '', fullPath);
     } catch (e) {
       // Ignore SecurityError in restricted environments (e.g. iframe/blob)
       console.debug('Navigation URL update suppressed:', e);
     }
-    setCurrentPath(path);
+    setCurrentPath(appPath);
   };
 
   const renderPage = () => {
