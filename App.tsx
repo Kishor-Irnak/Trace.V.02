@@ -6,6 +6,7 @@ import Leads from './pages/Leads';
 import Billing from './pages/Billing';
 import Settings from './pages/Settings';
 import { Auth } from './pages/Auth';
+import { Landing } from './pages/Landing';
 import { LeadDrawer } from './components/LeadDrawer';
 import { UserProfile } from './types';
 import { authService } from './services/authService';
@@ -25,6 +26,7 @@ const App: React.FC = () => {
     return `${basePath || ''}${normalized}`;
   };
 
+  const [showLanding, setShowLanding] = useState(false);
   const [currentPath, setCurrentPath] = useState<string>(() => normalizeAppPath(window.location.pathname));
   const [isLeadDrawerOpen, setIsLeadDrawerOpen] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -66,14 +68,20 @@ const App: React.FC = () => {
           plan: 'Pro Workspace',
         });
         setIsAuthenticated(true);
+        setShowLanding(false); // Don't show landing if authenticated
       } else {
         setIsAuthenticated(false);
+        // Only show landing on root path for unauthenticated users
+        const path = window.location.pathname.replace(basePath, '') || '/';
+        const isRootPath = path === '/' || path === basePath || path === '';
+        const hasVisited = sessionStorage.getItem('hasVisitedApp');
+        setShowLanding(isRootPath && !hasVisited);
       }
       setAuthLoading(false);
       setAuthError(null);
     });
     return () => unsubscribe();
-  }, []);
+  }, [basePath]);
 
   const navigate = (path: string) => {
     const appPath = allowedPaths.includes(path) ? path : '/';
@@ -97,6 +105,16 @@ const App: React.FC = () => {
       default: return <Dashboard />;
     }
   };
+
+  const handleGetStarted = () => {
+    setShowLanding(false);
+    sessionStorage.setItem('hasVisitedApp', 'true');
+  };
+
+  // Show landing page only if not loading, not authenticated, and showLanding is true
+  if (!authLoading && !isAuthenticated && showLanding) {
+    return <Landing onGetStarted={handleGetStarted} />;
+  }
 
   return (
     <>
