@@ -6,7 +6,6 @@ import Leads from './pages/Leads';
 import Billing from './pages/Billing';
 import Settings from './pages/Settings';
 import { Auth } from './pages/Auth';
-import { Landing } from './pages/Landing';
 import { LeadDrawer } from './components/LeadDrawer';
 import { UserProfile } from './types';
 import { authService } from './services/authService';
@@ -16,9 +15,19 @@ const App: React.FC = () => {
   const allowedPaths = ['/', '/pipeline', '/leads', '/billing', '/settings'];
 
   const normalizeAppPath = (pathname: string) => {
-    const withoutBase = pathname.startsWith(basePath) ? pathname.slice(basePath.length) : pathname;
-    const appPath = withoutBase.startsWith('/') ? withoutBase : `/${withoutBase}`;
-    return allowedPaths.includes(appPath) ? appPath : '/';
+    // Remove base path if present
+    let cleanPath = pathname;
+    if (basePath && basePath !== '/') {
+      if (pathname.startsWith(basePath)) {
+        cleanPath = pathname.slice(basePath.length);
+      }
+    }
+    // Ensure it starts with /
+    const appPath = cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
+    // Normalize trailing slashes
+    const normalizedPath = appPath === '/' ? '/' : appPath.replace(/\/$/, '');
+    // Return if valid path, otherwise default to dashboard
+    return allowedPaths.includes(normalizedPath) ? normalizedPath : '/';
   };
 
   const buildFullPath = (appPath: string) => {
@@ -26,7 +35,6 @@ const App: React.FC = () => {
     return `${basePath || ''}${normalized}`;
   };
 
-  const [showLanding, setShowLanding] = useState(false);
   const [currentPath, setCurrentPath] = useState<string>(() => normalizeAppPath(window.location.pathname));
   const [isLeadDrawerOpen, setIsLeadDrawerOpen] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -42,12 +50,34 @@ const App: React.FC = () => {
   });
 
   useEffect(() => {
-    const handlePopState = () => {
-      setCurrentPath(normalizeAppPath(window.location.pathname));
+    // Initialize path on mount and handle navigation
+    const updatePath = () => {
+      const normalized = normalizeAppPath(window.location.pathname);
+      setCurrentPath(normalized);
     };
+    
+    // Set initial path
+    updatePath();
+    
+    // Handle browser back/forward
+    const handlePopState = () => {
+      updatePath();
+    };
+    
+    // Handle path changes
+    const handleLocationChange = () => {
+      updatePath();
+    };
+    
     window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+    // Check for path changes periodically (fallback for SPA routing)
+    const interval = setInterval(handleLocationChange, 100);
+    
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      clearInterval(interval);
+    };
+  }, [basePath]);
 
   useEffect(() => {
     const unsubscribe = authService.onChange((firebaseUser) => {
@@ -68,20 +98,16 @@ const App: React.FC = () => {
           plan: 'Pro Workspace',
         });
         setIsAuthenticated(true);
-        setShowLanding(false); // Don't show landing if authenticated
       } else {
         setIsAuthenticated(false);
-        // Only show landing on root path for unauthenticated users
-        const path = window.location.pathname.replace(basePath, '') || '/';
-        const isRootPath = path === '/' || path === basePath || path === '';
-        const hasVisited = sessionStorage.getItem('hasVisitedApp');
-        setShowLanding(isRootPath && !hasVisited);
+        // Clear session storage on logout
+        sessionStorage.removeItem('hasVisitedApp');
       }
       setAuthLoading(false);
       setAuthError(null);
     });
     return () => unsubscribe();
-  }, [basePath]);
+  }, []);
 
   const navigate = (path: string) => {
     const appPath = allowedPaths.includes(path) ? path : '/';
@@ -106,15 +132,21 @@ const App: React.FC = () => {
     }
   };
 
-  const handleGetStarted = () => {
-    setShowLanding(false);
-    sessionStorage.setItem('hasVisitedApp', 'true');
+  const handleSignOut = async () => {
+    try {
+      await authService.signOut();
+      // Reset path to root on logout
+      setCurrentPath('/');
+      const fullPath = buildFullPath('/');
+      try {
+        window.history.pushState({}, '', fullPath);
+      } catch (e) {
+        console.debug('Navigation URL update suppressed:', e);
+      }
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
   };
-
-  // Show landing page only if not loading, not authenticated, and showLanding is true
-  if (!authLoading && !isAuthenticated && showLanding) {
-    return <Landing onGetStarted={handleGetStarted} />;
-  }
 
   return (
     <>
@@ -129,7 +161,7 @@ const App: React.FC = () => {
             currentPath={currentPath}
             onNavigate={navigate}
             user={user}
-            onSignOut={() => authService.signOut()}
+            onSignOut={handleSignOut}
           >
             {renderPage()}
           </Layout>

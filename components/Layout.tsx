@@ -98,20 +98,22 @@ export const Layout: React.FC<LayoutProps> = ({ children, onNewLead, currentPath
         </div>
 
         <div className="mt-auto p-4 border-t border-border">
-          <div className="flex items-center gap-2 px-1">
-            <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center text-xs font-semibold text-slate-700">
-              {user.avatar}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium truncate text-slate-900">{user.name}</p>
-              <p className="text-[10px] text-slate-500 truncate">{user.plan}</p>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2 px-1">
+              <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center text-xs font-semibold text-slate-700">
+                {user.avatar}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium truncate text-slate-900">{user.name}</p>
+                <p className="text-[10px] text-slate-500 truncate">{user.plan}</p>
+              </div>
             </div>
             {onSignOut && (
               <button
                 onClick={onSignOut}
-                className="text-[10px] font-semibold text-slate-500 hover:text-slate-900 border border-slate-200 px-2 py-1 rounded-md transition"
+                className="w-full px-3 py-2 bg-slate-900 text-white text-xs font-semibold rounded-md hover:bg-slate-800 transition-colors flex items-center justify-center gap-2"
               >
-                Sign out
+                <span>Log Out</span>
               </button>
             )}
           </div>
