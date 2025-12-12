@@ -6,7 +6,7 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signInWithPopup,
-  signOut,
+  signOut as firebaseSignOut,
   updateProfile,
 } from 'firebase/auth';
 import { auth } from './firebase';
@@ -41,7 +41,7 @@ export const authService = {
   },
 
   async signOut() {
-    await signOut(auth);
+    await firebaseSignOut(auth);
   },
 };
 

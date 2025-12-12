@@ -63,9 +63,11 @@ export const Layout: React.FC<LayoutProps> = ({ children, onNewLead, currentPath
       >
         <div className="p-4 flex items-center justify-between">
           <div className="flex items-center gap-2 px-2">
-            <div className="w-5 h-5 bg-slate-900 rounded-sm flex items-center justify-center">
-                <div className="w-2 h-2 bg-white rounded-full"></div>
-            </div>
+            <img 
+              src="https://i.postimg.cc/QC67xcXT/T-logo.png" 
+              alt="Trace Logo" 
+              className="w-6 h-6 object-contain"
+            />
             <span className="text-sm font-semibold tracking-tight">Trace</span>
           </div>
           <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-slate-400 hover:text-slate-600">

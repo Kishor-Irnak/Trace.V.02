@@ -41,8 +41,12 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, onRegister, onGoogle, error
               Sign in to access your pipeline and leads.
             </p>
           </div>
-          <div className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-semibold">
-            TR
+          <div className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center overflow-hidden">
+            <img 
+              src="https://i.postimg.cc/QC67xcXT/T-logo.png" 
+              alt="Trace Logo" 
+              className="w-8 h-8 object-contain"
+            />
           </div>
         </div>
 
