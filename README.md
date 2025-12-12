@@ -1,5 +1,4 @@
 <div align="center">
-  <img width="1200" alt="Trace CRM Banner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
   <h1>Trace CRM Dashboard</h1>
   <p>Modern CRM & pipeline dashboard built with React + Vite</p>
   <a href="https://kishor-irnak.github.io/Trace.V.02/"><strong>Live Demo (GitHub Pages)</strong></a>
@@ -63,21 +62,6 @@ Trace CRM is a single-page dashboard that showcases pipeline health, recent lead
 2. Configure Firebase Realtime Database (required)  
    Create `.env.local` and set:
 
-```
-VITE_FIREBASE_API_KEY=your-api-key
-VITE_FIREBASE_AUTH_DOMAIN=your-auth-domain
-VITE_FIREBASE_DATABASE_URL=your-db-url
-VITE_FIREBASE_PROJECT_ID=your-project-id
-VITE_FIREBASE_STORAGE_BUCKET=your-storage-bucket
-VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
-VITE_FIREBASE_APP_ID=your-app-id
-VITE_FIREBASE_MEASUREMENT_ID=your-measurement-id
-GEMINI_API_KEY=optional-if-you-use-gemini
-```
-
-3. Run locally  
-   `npm run dev`  
-   Then open the printed localhost URL (default: http://localhost:3000).
 
 ## Environment Variables
 
