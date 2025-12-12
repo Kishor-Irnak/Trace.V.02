@@ -1,20 +1,22 @@
 import { Lead, LeadStatus } from '../types';
-import { MOCK_LEADS } from '../constants';
-
-// In a real app, this would initialize Firebase
-// import { initializeApp } from 'firebase/app';
-// import { getFirestore, collection, getDocs, ... } from 'firebase/firestore';
+import { db } from './firebase';
+import { onValue, push, ref, remove, set, update } from 'firebase/database';
 
 class CrmService {
-  private leads: Lead[] = [...MOCK_LEADS];
+  private leads: Lead[] = [];
   private listeners: ((leads: Lead[]) => void)[] = [];
+  private leadsRef = ref(db, 'leads');
 
   constructor() {
-    // Simulate loading delay/realtime connection
-    console.log('CRM Service Initialized');
+    // Realtime subscription to Firebase RTDB
+    onValue(this.leadsRef, (snapshot) => {
+      const data = snapshot.val() || {};
+      this.leads = Object.entries(data).map(([id, value]) => ({ id, ...(value as Omit<Lead, 'id'>) }));
+      this.notify();
+    });
   }
 
-  // Subscribe to changes (Simulating Firestore onSnapshot)
+  // Subscribe to changes
   subscribe(callback: (leads: Lead[]) => void) {
     this.listeners.push(callback);
     callback(this.leads);
@@ -28,28 +30,20 @@ class CrmService {
   }
 
   async getLeads(): Promise<Lead[]> {
-    return new Promise((resolve) => {
-      setTimeout(() => resolve([...this.leads]), 500);
-    });
+    return [...this.leads];
   }
 
   async updateLeadStage(leadId: string, newStage: LeadStatus): Promise<void> {
-    const leadIndex = this.leads.findIndex(l => l.id === leadId);
-    if (leadIndex > -1) {
-      this.leads[leadIndex] = { ...this.leads[leadIndex], stage: newStage, lastActivity: 'Just now' };
-      this.notify();
-    }
+    await update(ref(db, `leads/${leadId}`), { stage: newStage, lastActivity: 'Just now' });
   }
 
   async addLead(lead: Omit<Lead, 'id'>): Promise<void> {
-    const newLead = { ...lead, id: Math.random().toString(36).substr(2, 9) };
-    this.leads.push(newLead);
-    this.notify();
+    const newLeadRef = push(this.leadsRef);
+    await set(newLeadRef, { ...lead, lastActivity: lead.lastActivity ?? 'Just now' });
   }
 
   async deleteLead(id: string): Promise<void> {
-    this.leads = this.leads.filter(l => l.id !== id);
-    this.notify();
+    await remove(ref(db, `leads/${id}`));
   }
 }
 
