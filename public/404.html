@@ -4,43 +4,33 @@
     <meta charset="utf-8" />
     <title>Trace CRM - Redirecting...</title>
     <script>
-      // SPA fallback for GitHub Pages - handles refresh on any route
-      (function() {
+      // SPA fallback for GitHub Pages - preserves the route on refresh
+      (function () {
         var base = "/Trace.V.02";
         var path = window.location.pathname;
         var search = window.location.search;
         var hash = window.location.hash;
-        
-        // Remove base path if present
+
+        // Remove base prefix
         if (path.startsWith(base)) {
           path = path.slice(base.length);
         }
-        
-        // Ensure path starts with /
-        if (!path.startsWith('/')) {
-          path = '/' + path;
+
+        // Ensure leading slash
+        if (!path.startsWith("/")) {
+          path = "/" + path;
         }
-        
-        // Build new URL
-        var newUrl = base + path;
-        
-        // Add search and hash
-        if (search) newUrl += search;
-        if (hash) newUrl += hash;
-        
-        // Redirect to index.html which will handle routing
-        if (path === '/' || path === '') {
-          window.location.replace(base + '/index.html' + search + hash);
-        } else {
-          window.location.replace(base + '/index.html' + search + hash);
-        }
+
+        // Build redirect param with original path + search + hash
+        var redirect = encodeURIComponent(path + search + hash);
+
+        // Send to index.html with redirect param; app will handle it
+        window.location.replace(base + "/index.html?redirect=" + redirect);
       })();
     </script>
   </head>
   <body>
-    <div style="font-family: Inter, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; color: #64748b;">
-      Redirecting...
-    </div>
+    <div style="font-family: Inter, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; color: #64748b;">Redirecting...</div>
   </body>
 </html>
 

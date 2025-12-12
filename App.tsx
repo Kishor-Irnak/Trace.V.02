@@ -14,19 +14,32 @@ const App: React.FC = () => {
   const basePath = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '');
   const allowedPaths = ['/', '/pipeline', '/leads', '/billing', '/settings'];
 
-  const normalizeAppPath = (pathname: string) => {
-    // Remove base path if present
-    let cleanPath = pathname;
-    if (basePath && basePath !== '/') {
-      if (pathname.startsWith(basePath)) {
-        cleanPath = pathname.slice(basePath.length);
-      }
+  const extractRedirectPath = () => {
+    const params = new URLSearchParams(window.location.search);
+    const redirect = params.get('redirect');
+    if (!redirect) return null;
+    try {
+      const decoded = decodeURIComponent(redirect);
+      return decoded;
+    } catch {
+      return redirect;
     }
-    // Ensure it starts with /
+  };
+
+  const normalizeAppPath = (pathname: string) => {
+    let cleanPath = pathname;
+    if (basePath && basePath !== '/' && pathname.startsWith(basePath)) {
+      cleanPath = pathname.slice(basePath.length);
+    }
+    // If redirect param exists, use that
+    const redirectPath = extractRedirectPath();
+    if (redirectPath) {
+      cleanPath = redirectPath;
+    }
+    // Ensure leading slash
     const appPath = cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
-    // Normalize trailing slashes
+    // Remove trailing slash (except root)
     const normalizedPath = appPath === '/' ? '/' : appPath.replace(/\/$/, '');
-    // Return if valid path, otherwise default to dashboard
     return allowedPaths.includes(normalizedPath) ? normalizedPath : '/';
   };
 
@@ -50,32 +63,32 @@ const App: React.FC = () => {
   });
 
   useEffect(() => {
-    // Initialize path on mount and handle navigation
     const updatePath = () => {
       const normalized = normalizeAppPath(window.location.pathname);
       setCurrentPath(normalized);
+      // Clean redirect param from URL after processing
+      const params = new URLSearchParams(window.location.search);
+      if (params.has('redirect')) {
+        params.delete('redirect');
+        const newUrl = buildFullPath(normalized) + (params.toString() ? `?${params.toString()}` : '') + window.location.hash;
+        try {
+          window.history.replaceState({}, '', newUrl);
+        } catch (e) {
+          console.debug('Navigation URL update suppressed:', e);
+        }
+      }
     };
-    
-    // Set initial path
+
+    // Initial path (handles redirect param)
     updatePath();
-    
-    // Handle browser back/forward
+
     const handlePopState = () => {
       updatePath();
     };
-    
-    // Handle path changes
-    const handleLocationChange = () => {
-      updatePath();
-    };
-    
+
     window.addEventListener('popstate', handlePopState);
-    // Check for path changes periodically (fallback for SPA routing)
-    const interval = setInterval(handleLocationChange, 100);
-    
     return () => {
       window.removeEventListener('popstate', handlePopState);
-      clearInterval(interval);
     };
   }, [basePath]);
 
