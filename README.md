@@ -75,7 +75,6 @@ Trace CRM is a single-page dashboard that showcases pipeline health, recent lead
    GEMINI_API_KEY=optional-if-you-use-gemini
    ```
 
-
 ## Environment Variables
 
 The build injects:
