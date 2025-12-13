@@ -1,4 +1,5 @@
 // services/projectService.ts
+import { auth } from "./firebase";
 
 export type TaskStatus = "todo" | "in-progress" | "review" | "done";
 
@@ -9,7 +10,8 @@ export type Task = {
   startDate: string;
   endDate: string;
   value: number;
-  assignees: string[]; // ✅ FIX: must exist
+  assignees: string[];
+  userId: string; // 🔐 owner
 };
 
 type TasksListener = (tasks: Task[]) => void;
@@ -17,13 +19,12 @@ type ProjectNameListener = (name: string) => void;
 
 class ProjectService {
   private tasks: Task[] = [];
-  private projectName = "Q4 Engineering Sprint";
+  private projectName = "My Tasks";
 
   private taskListeners: TasksListener[] = [];
   private projectNameListeners: ProjectNameListener[] = [];
 
   constructor() {
-    // ✅ Load from localStorage
     const storedTasks = localStorage.getItem("tasks");
     const storedProjectName = localStorage.getItem("projectName");
 
@@ -31,23 +32,35 @@ class ProjectService {
     this.projectName = storedProjectName || this.projectName;
   }
 
-  /* -------------------- Helpers -------------------- */
+  /* -------------------- helpers -------------------- */
 
-  private notifyTasks() {
+  private emitTasks() {
     localStorage.setItem("tasks", JSON.stringify(this.tasks));
-    this.taskListeners.forEach((cb) => cb(this.tasks));
+
+    const user = auth.currentUser;
+    const userTasks = user
+      ? this.tasks.filter((t) => t.userId === user.uid)
+      : [];
+
+    this.taskListeners.forEach((cb) => cb(userTasks));
   }
 
-  private notifyProjectName() {
+  private emitProjectName() {
     localStorage.setItem("projectName", this.projectName);
     this.projectNameListeners.forEach((cb) => cb(this.projectName));
   }
 
-  /* -------------------- Subscriptions -------------------- */
+  /* -------------------- subscriptions -------------------- */
 
   subscribeTasks(callback: TasksListener) {
     this.taskListeners.push(callback);
-    callback(this.tasks);
+
+    const user = auth.currentUser;
+    const userTasks = user
+      ? this.tasks.filter((t) => t.userId === user.uid)
+      : [];
+
+    callback(userTasks);
 
     return () => {
       this.taskListeners = this.taskListeners.filter((cb) => cb !== callback);
@@ -65,16 +78,19 @@ class ProjectService {
     };
   }
 
-  /* -------------------- Project -------------------- */
+  /* -------------------- project -------------------- */
 
   async updateProjectName(name: string) {
     this.projectName = name;
-    this.notifyProjectName();
+    this.emitProjectName();
   }
 
-  /* -------------------- Tasks CRUD -------------------- */
+  /* -------------------- CRUD -------------------- */
 
-  async addTask(task: Omit<Task, "id">) {
+  async addTask(task: Omit<Task, "id" | "userId">) {
+    const user = auth.currentUser;
+    if (!user) return;
+
     const newTask: Task = {
       id: crypto.randomUUID(),
       title: task.title,
@@ -82,32 +98,42 @@ class ProjectService {
       startDate: task.startDate,
       endDate: task.endDate,
       value: task.value ?? 0,
-      assignees: Array.isArray(task.assignees) ? task.assignees : [], // ✅ FIX
+      assignees: task.assignees ?? [],
+      userId: user.uid, // ✅ KEY FIX
     };
 
     this.tasks.push(newTask);
-    this.notifyTasks();
+    this.emitTasks();
   }
 
   async updateTask(id: string, updates: Partial<Task>) {
+    const user = auth.currentUser;
+    if (!user) return;
+
     this.tasks = this.tasks.map((task) =>
-      task.id === id
-        ? {
-            ...task,
-            ...updates,
-            assignees: Array.isArray(updates.assignees)
-              ? updates.assignees
-              : task.assignees, // ✅ FIX: preserve assignees
-          }
+      task.id === id && task.userId === user.uid
+        ? { ...task, ...updates }
         : task
     );
 
-    this.notifyTasks();
+    this.emitTasks();
   }
 
   async deleteTask(id: string) {
-    this.tasks = this.tasks.filter((task) => task.id !== id);
-    this.notifyTasks();
+    const user = auth.currentUser;
+    if (!user) return;
+
+    this.tasks = this.tasks.filter(
+      (task) => !(task.id === id && task.userId === user.uid)
+    );
+
+    this.emitTasks();
+  }
+
+  /* -------------------- logout cleanup -------------------- */
+
+  clearUserTasks() {
+    this.emitTasks(); // re-filter tasks for new user
   }
 }
 
