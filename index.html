@@ -4,33 +4,48 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Trace</title>
-    <link rel="icon" type="image/png" href="https://i.postimg.cc/QC67xcXT/T-logo.png">
-    <link rel="apple-touch-icon" href="https://i.postimg.cc/QC67xcXT/T-logo.png">
+
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%230f172a%22/><text x=%2250%22 y=%2250%22 font-family=%22serif%22 font-weight=%22bold%22 font-size=%2270%22 fill=%22white%22 text-anchor=%22middle%22 dy=%22.35em%22>T</text></svg>"
+    />
+
+    <link
+      rel="apple-touch-icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%230f172a%22/><text x=%2250%22 y=%2250%22 font-family=%22serif%22 font-weight=%22bold%22 font-size=%2270%22 fill=%22white%22 text-anchor=%22middle%22 dy=%22.35em%22>T</text></svg>"
+    />
+
+    <meta name="theme-color" content="#0f172a" />
+
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
     <script>
       tailwind.config = {
         theme: {
           extend: {
             fontFamily: {
-              sans: ['Inter', 'sans-serif'],
+              sans: ["Inter", "sans-serif"],
             },
             colors: {
-              primary: '#0f172a', // Slate 900
-              secondary: '#64748b', // Slate 500
-              border: '#e2e8f0', // Slate 200
-              background: '#f8fafc', // Slate 50
-              surface: '#ffffff',
+              primary: "#0f172a", // Slate 900
+              secondary: "#64748b", // Slate 500
+              border: "#e2e8f0", // Slate 200
+              background: "#f8fafc", // Slate 50
+              surface: "#ffffff",
             },
             boxShadow: {
-              'subtle': '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-              'card': '0 0 0 1px rgba(0,0,0,0.03), 0 1px 3px 0 rgba(0,0,0,0.04)',
-            }
-          }
-        }
-      }
+              subtle: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+              card: "0 0 0 1px rgba(0,0,0,0.03), 0 1px 3px 0 rgba(0,0,0,0.04)",
+            },
+          },
+        },
+      };
     </script>
     <style>
       body {
@@ -55,16 +70,32 @@
       }
       /* Animations */
       @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
       }
       @keyframes float {
-        0%, 100% { transform: translateY(0px); }
-        50% { transform: translateY(-20px); }
+        0%,
+        100% {
+          transform: translateY(0px);
+        }
+        50% {
+          transform: translateY(-20px);
+        }
       }
       @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.5; }
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
       }
       .animate-fadeIn {
         animation: fadeIn 0.3s ease-in-out;
@@ -77,23 +108,23 @@
       }
     </style>
     <script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@18.2.0",
-    "react/": "https://esm.sh/react@18.2.0/",
-    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-    "react-dom": "https://esm.sh/react-dom@18.2.0",
-    "react-dom/": "https://esm.sh/react-dom@18.2.0/",
-    "lucide-react": "https://esm.sh/lucide-react@0.263.1?external=react",
-    "recharts": "https://esm.sh/recharts@2.12.3?external=react,react-dom"
-  }
-}
-</script>
-  <link rel="stylesheet" href="/index.css">
-</head>
+      {
+        "imports": {
+          "react": "https://esm.sh/react@18.2.0",
+          "react/": "https://esm.sh/react@18.2.0/",
+          "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+          "react-dom": "https://esm.sh/react-dom@18.2.0",
+          "react-dom/": "https://esm.sh/react-dom@18.2.0/",
+          "lucide-react": "https://esm.sh/lucide-react@0.263.1?external=react",
+          "recharts": "https://esm.sh/recharts@2.12.3?external=react,react-dom"
+        }
+      }
+    </script>
+    <link rel="stylesheet" href="/index.css" />
+  </head>
   <body>
     <div id="root"></div>
     <script type="module" src="./index.tsx"></script>
-  <script type="module" src="/index.tsx"></script>
-</body>
+    <script type="module" src="/index.tsx"></script>
+  </body>
 </html>

@@ -20,25 +20,30 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser }) => {
   });
   const [currentRole, setCurrentRole] = useState<string>("sales");
 
-  // Load User Data & Role
   useEffect(() => {
     if (user) setFormData(user);
-
     const unsubscribe = crmService.subscribeSettings((settings) => {
-      if (settings && settings.role) {
-        setCurrentRole(settings.role);
-      }
+      if (settings && settings.role) setCurrentRole(settings.role);
     });
     return () => unsubscribe();
   }, [user]);
 
-  // --- SORTING LOGIC: Selected Role First ---
+  // Deep Link Handling
+  useEffect(() => {
+    const requestedTab = localStorage.getItem("activeSettingsTab");
+    if (requestedTab) {
+      if (["profile", "workspace", "notifications"].includes(requestedTab))
+        setActiveTab(requestedTab);
+      localStorage.removeItem("activeSettingsTab");
+    }
+  }, []);
+
   const sortedTemplates = useMemo(() => {
     const templates = Object.values(ROLE_TEMPLATES);
     return templates.sort((a: any, b: any) => {
-      if (a.id === currentRole) return -1; // Move selected to top
+      if (a.id === currentRole) return -1;
       if (b.id === currentRole) return 1;
-      return 0; // Keep original order for others
+      return 0;
     });
   }, [currentRole]);
 
@@ -74,7 +79,6 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser }) => {
 
   return (
     <div className="w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-      {/* Centered Header */}
       <div className="mb-8 text-center">
         <h2 className="text-2xl font-bold text-slate-900">Settings</h2>
         <p className="text-slate-500 text-sm mt-1">
@@ -83,7 +87,6 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser }) => {
       </div>
 
       <div className="flex flex-col items-center gap-8">
-        {/* CENTERED TABS - Balanced Roundedness */}
         <div className="w-full flex justify-center">
           <div className="flex flex-row gap-1 bg-white border border-slate-200 p-1.5 rounded-2xl shadow-sm">
             {tabs.map((tab) => {
@@ -114,10 +117,8 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser }) => {
           </div>
         </div>
 
-        {/* CONTENT CARD - Balanced Roundedness */}
         <div className="w-full max-w-3xl">
           <GlassCard className="p-6 md:p-10 min-h-[500px] border border-slate-200 shadow-sm bg-white rounded-2xl">
-            {/* --- PROFILE TAB --- */}
             {activeTab === "profile" && (
               <div className="space-y-8 max-w-md mx-auto">
                 <div className="text-center md:text-left">
@@ -128,7 +129,6 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser }) => {
                     Update your photo and personal details.
                   </p>
                 </div>
-
                 <div className="flex flex-col md:flex-row items-center gap-6">
                   <div className="w-24 h-24 rounded-2xl bg-slate-100 border-2 border-slate-200 flex items-center justify-center text-3xl font-bold text-slate-400 uppercase shadow-inner">
                     {formData.avatar || "JD"}
@@ -145,7 +145,6 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser }) => {
                     </p>
                   </div>
                 </div>
-
                 <div className="space-y-5">
                   <div className="grid gap-1.5">
                     <label className="text-xs font-bold text-slate-700 uppercase tracking-wide">
@@ -174,7 +173,6 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser }) => {
                     />
                   </div>
                 </div>
-
                 <div className="pt-6 border-t border-slate-100 flex justify-center md:justify-start">
                   <GlassButton
                     className="bg-slate-900 text-white hover:bg-slate-800 px-8 rounded-xl"
@@ -185,8 +183,6 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser }) => {
                 </div>
               </div>
             )}
-
-            {/* --- WORKSPACE TAB --- */}
             {activeTab === "workspace" && (
               <div>
                 <div className="mb-8 text-center md:text-left">
@@ -198,12 +194,10 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser }) => {
                     active role is highlighted.
                   </p>
                 </div>
-
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {sortedTemplates.map((template: any) => {
                     const Icon = template.icon;
                     const isSelected = currentRole === template.id;
-
                     return (
                       <div
                         key={template.id}
@@ -212,8 +206,8 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser }) => {
                         }
                         className={`relative flex flex-col p-5 rounded-2xl border-2 cursor-pointer transition-all duration-300 ease-spring ${
                           isSelected
-                            ? "border-slate-900 bg-slate-900 shadow-xl scale-[1.02] order-first" // Selected Styles
-                            : "border-slate-100 bg-white hover:border-slate-300 hover:bg-slate-50" // Unselected Styles
+                            ? "border-slate-900 bg-slate-900 shadow-xl scale-[1.02] order-first"
+                            : "border-slate-100 bg-white hover:border-slate-300 hover:bg-slate-50"
                         }`}
                       >
                         <div className="flex justify-between items-start mb-4">
@@ -232,7 +226,6 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser }) => {
                             </div>
                           )}
                         </div>
-
                         <h4
                           className={`font-bold text-sm mb-1 ${
                             isSelected ? "text-white" : "text-slate-900"
@@ -253,8 +246,6 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser }) => {
                 </div>
               </div>
             )}
-
-            {/* --- NOTIFICATIONS TAB --- */}
             {activeTab === "notifications" && (
               <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-center">
                 <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-4">
