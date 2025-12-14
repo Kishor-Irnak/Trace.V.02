@@ -20,6 +20,9 @@ import {
   Activity,
   MousePointer,
   CheckCircle2,
+  CalendarDays,
+  List,
+  ArrowDown,
 } from "lucide-react";
 import {
   PieChart,
@@ -118,7 +121,31 @@ const getDaysArray = (start: Date, end: Date) => {
   return arr;
 };
 
-// Currency set to Indian Rupee (INR)
+const getMonthsArray = (start: Date, end: Date) => {
+  const months = [];
+  const d = new Date(start);
+  d.setDate(1);
+  d.setHours(0, 0, 0, 0);
+
+  const endDate = new Date(end);
+  endDate.setDate(1);
+  endDate.setHours(0, 0, 0, 0);
+
+  while (d <= endDate) {
+    months.push(new Date(d));
+    d.setMonth(d.getMonth() + 1);
+  }
+  return months;
+};
+
+// Helper to generate consistent keys for months (YYYY-MM) using LOCAL time
+const getMonthKey = (date: Date) => {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+    2,
+    "0"
+  )}`;
+};
+
 const formatCurrency = (val: number) =>
   new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -165,8 +192,6 @@ const AvatarGroup = ({ names }: { names: string[] }) => {
     </div>
   );
 };
-
-// --- Multi-Select Component ---
 
 const MultiSelectUser = ({
   selectedUsers,
@@ -241,6 +266,12 @@ const MultiSelectUser = ({
     }
   };
 
+  const handleBlur = () => {
+    if (inputValue.trim()) {
+      addUser(inputValue.trim());
+    }
+  };
+
   return (
     <div className="relative" ref={wrapperRef}>
       <div className="flex flex-wrap gap-2 p-2 bg-slate-50 border border-slate-200 rounded-lg min-h-[42px] focus-within:ring-2 focus-within:ring-slate-900/10 focus-within:bg-white transition-all">
@@ -266,13 +297,12 @@ const MultiSelectUser = ({
           type="text"
           className="flex-1 min-w-[120px] bg-transparent outline-none text-sm placeholder:text-slate-400"
           placeholder={
-            safeSelectedUsers.length === 0
-              ? "Type name & press Enter..."
-              : "Add another..."
+            safeSelectedUsers.length === 0 ? "Type name..." : "Add another..."
           }
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
+          onBlur={handleBlur}
           onFocus={() => {
             if (inputValue || allKnownUsers.length > 0) {
               setShowSuggestions(true);
@@ -288,7 +318,10 @@ const MultiSelectUser = ({
               key={idx}
               type="button"
               className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-              onClick={() => addUser(name)}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                addUser(name);
+              }}
             >
               <div
                 className={`w-2 h-2 rounded-full ${getColorForName(name)}`}
@@ -301,8 +334,6 @@ const MultiSelectUser = ({
     </div>
   );
 };
-
-// --- Modal ---
 
 const Modal = ({
   isOpen,
@@ -341,16 +372,14 @@ const Modal = ({
 const ProjectManager: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [currentView, setCurrentView] = useState<
-    "timeline" | "board" | "analytics"
+    "timeline" | "board" | "analytics" | "calendar"
   >("timeline");
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Project Name
   const [projectName, setProjectName] = useState("Q4 Engineering Sprint");
   const [isEditingProjectName, setIsEditingProjectName] = useState(false);
   const projectNameInputRef = useRef<HTMLInputElement>(null);
 
-  // Form State
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<Task>>({
     title: "",
@@ -462,19 +491,20 @@ const ProjectManager: React.FC = () => {
     }
   };
 
-  // --- Drag & Drop State (Board Tasks) ---
+  // --- Drag & Drop (Generic) ---
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
 
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
     setDraggedTaskId(taskId);
     e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", taskId);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
   };
 
-  const handleDrop = async (e: React.DragEvent, status: TaskStatus) => {
+  const handleDropStatus = async (e: React.DragEvent, status: TaskStatus) => {
     e.preventDefault();
     if (draggedTaskId) {
       await projectService.updateTask(draggedTaskId, { status });
@@ -539,7 +569,6 @@ const ProjectManager: React.FC = () => {
 
     return (
       <div className="h-full overflow-y-auto p-6 bg-slate-50/50">
-        {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm flex flex-col justify-between">
             <div className="flex justify-between items-start">
@@ -769,10 +798,8 @@ const ProjectManager: React.FC = () => {
     const [isBoardDragging, setIsBoardDragging] = useState(false);
     const boardDragStart = useRef({ x: 0, left: 0 });
 
-    // Handlers for Right-Click Drag
     const handleBoardMouseDown = (e: React.MouseEvent) => {
       if (e.button === 2 && boardContainerRef.current) {
-        // Right click
         e.preventDefault();
         setIsBoardDragging(true);
         boardDragStart.current = {
@@ -787,7 +814,7 @@ const ProjectManager: React.FC = () => {
         if (!isBoardDragging || !boardContainerRef.current) return;
         e.preventDefault();
         const x = e.pageX;
-        const walk = (x - boardDragStart.current.x) * 1.5; // Scroll speed
+        const walk = (x - boardDragStart.current.x) * 1.5;
         boardContainerRef.current.scrollLeft =
           boardDragStart.current.left - walk;
       },
@@ -798,7 +825,6 @@ const ProjectManager: React.FC = () => {
       setIsBoardDragging(false);
     }, []);
 
-    // Global Listeners for board drag
     useEffect(() => {
       if (isBoardDragging) {
         window.addEventListener("mousemove", handleBoardMouseMove);
@@ -835,7 +861,7 @@ const ProjectManager: React.FC = () => {
                   editingTaskId ? "hover:bg-slate-100/80" : ""
                 }`}
                 onDragOver={handleDragOver}
-                onDrop={(e) => handleDrop(e, status)}
+                onDrop={(e) => handleDropStatus(e, status)}
               >
                 <div className="p-3 border-b border-slate-100 flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -1001,7 +1027,6 @@ const ProjectManager: React.FC = () => {
       }
     }, [initialScrollPosition]);
 
-    // --- DRAG LOGIC ---
     const handleMouseDown = (e: React.MouseEvent) => {
       if (e.button === 2 && scrollContainerRef.current) {
         e.preventDefault();
@@ -1062,12 +1087,6 @@ const ProjectManager: React.FC = () => {
         width: `${Math.max(1, duration) * dayWidth}px`,
       };
     };
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayDiff =
-      (today.getTime() - earliestDate.getTime()) / (1000 * 3600 * 24);
-    const showTodayLine = todayDiff >= 0 && todayDiff <= dates.length;
 
     return (
       <div className="flex-1 overflow-hidden relative flex flex-col h-full bg-white">
@@ -1133,16 +1152,19 @@ const ProjectManager: React.FC = () => {
               </div>
 
               {/* Today Line */}
-              {showTodayLine && (
-                <div
-                  className="absolute top-0 bottom-0 w-px bg-blue-500 z-10 pointer-events-none"
-                  style={{
-                    left: `${todayDiff * dayWidth + dayWidth / 2}px`,
-                  }}
-                >
-                  <div className="w-2 h-2 bg-blue-500 rounded-full absolute -top-1 -left-[3.5px]"></div>
-                </div>
-              )}
+              <div
+                className="absolute top-0 bottom-0 w-px bg-blue-500 z-10 pointer-events-none"
+                style={{
+                  left: `${
+                    ((new Date().getTime() - earliestDate.getTime()) /
+                      (1000 * 3600 * 24)) *
+                      dayWidth +
+                    dayWidth / 2
+                  }px`,
+                }}
+              >
+                <div className="w-2 h-2 bg-blue-500 rounded-full absolute -top-1 -left-[3.5px]"></div>
+              </div>
 
               {/* Tasks */}
               <div className="space-y-3 px-0 relative z-10">
@@ -1204,8 +1226,329 @@ const ProjectManager: React.FC = () => {
     );
   };
 
+  // --- NEW Calendar View (Vertical Scroll) ---
+  const CalendarView = () => {
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const [isDragging, setIsDragging] = useState(false);
+    const dragStart = useRef({ y: 0, top: 0 });
+    const monthRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+    const [draggedTask, setDraggedTask] = useState<string | null>(null);
+    const [showTodayButton, setShowTodayButton] = useState(false);
+
+    // Dynamic Range: Determine start and end months from tasks
+    const { startMonth, endMonth } = useMemo(() => {
+      let minDate = new Date();
+      let maxDate = new Date();
+
+      if (tasks.length > 0) {
+        minDate = new Date(tasks[0].startDate);
+        maxDate = new Date(tasks[0].endDate);
+        tasks.forEach((task) => {
+          const start = new Date(task.startDate);
+          const end = new Date(task.endDate);
+          if (start < minDate) minDate = start;
+          if (end > maxDate) maxDate = end;
+        });
+      }
+
+      const bufferedStart = new Date(minDate);
+      bufferedStart.setMonth(bufferedStart.getMonth() - 2);
+      bufferedStart.setDate(1);
+
+      const bufferedEnd = new Date(maxDate);
+      bufferedEnd.setMonth(bufferedEnd.getMonth() + 4);
+      bufferedEnd.setDate(1);
+
+      return { startMonth: bufferedStart, endMonth: bufferedEnd };
+    }, [tasks]);
+
+    const months = useMemo(
+      () => getMonthsArray(startMonth, endMonth),
+      [startMonth, endMonth]
+    );
+
+    // Check visibility of "Today"
+    const checkTodayVisibility = useCallback(() => {
+      const todayKey = getMonthKey(new Date());
+      const todayEl = monthRefs.current[todayKey];
+      if (!todayEl) {
+        setShowTodayButton(true);
+        return;
+      }
+
+      const rect = todayEl.getBoundingClientRect();
+      const containerRect = scrollContainerRef.current?.getBoundingClientRect();
+
+      if (containerRect) {
+        const isOutOfView =
+          rect.bottom < containerRect.top || rect.top > containerRect.bottom;
+        setShowTodayButton(isOutOfView);
+      }
+    }, [months]);
+
+    useEffect(() => {
+      const el = scrollContainerRef.current;
+      if (el) {
+        el.addEventListener("scroll", checkTodayVisibility);
+        checkTodayVisibility();
+      }
+      return () => el?.removeEventListener("scroll", checkTodayVisibility);
+    }, [checkTodayVisibility]);
+
+    // Initial Scroll to Today
+    useEffect(() => {
+      setTimeout(() => scrollToToday(), 100);
+    }, []);
+
+    const scrollToToday = () => {
+      const todayKey = getMonthKey(new Date());
+      const el = monthRefs.current[todayKey];
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    };
+
+    // Vertical Drag Logic
+    const handleMouseDown = (e: React.MouseEvent) => {
+      if (e.button === 2 && scrollContainerRef.current) {
+        e.preventDefault();
+        setIsDragging(true);
+        dragStart.current = {
+          y: e.pageY,
+          top: scrollContainerRef.current.scrollTop,
+        };
+      }
+    };
+
+    const handleMouseMove = useCallback(
+      (e: MouseEvent) => {
+        if (!isDragging || !scrollContainerRef.current) return;
+        e.preventDefault();
+        const y = e.pageY;
+        const walk = (y - dragStart.current.y) * 1.5;
+        scrollContainerRef.current.scrollTop = dragStart.current.top - walk;
+      },
+      [isDragging]
+    );
+
+    const handleMouseUp = useCallback(() => {
+      setIsDragging(false);
+    }, []);
+
+    useEffect(() => {
+      if (isDragging) {
+        window.addEventListener("mousemove", handleMouseMove);
+        window.addEventListener("mouseup", handleMouseUp);
+      } else {
+        window.removeEventListener("mousemove", handleMouseMove);
+        window.removeEventListener("mouseup", handleMouseUp);
+      }
+      return () => {
+        window.removeEventListener("mousemove", handleMouseMove);
+        window.removeEventListener("mouseup", handleMouseUp);
+      };
+    }, [isDragging, handleMouseMove, handleMouseUp]);
+
+    // Calendar Task Drag & Drop
+    const handleTaskDragStart = (e: React.DragEvent, taskId: string) => {
+      setDraggedTask(taskId);
+      e.dataTransfer.effectAllowed = "move";
+    };
+
+    const handleDragOver = (e: React.DragEvent) => e.preventDefault();
+
+    const handleDropOnDay = async (e: React.DragEvent, date: Date) => {
+      e.preventDefault();
+      if (draggedTask) {
+        const task = tasks.find((t) => t.id === draggedTask);
+        if (task) {
+          const oldStart = new Date(task.startDate);
+          const oldEnd = new Date(task.endDate);
+          const duration = oldEnd.getTime() - oldStart.getTime();
+
+          const newStart = new Date(date);
+          newStart.setHours(12, 0, 0, 0);
+          const newEnd = new Date(newStart.getTime() + duration);
+
+          await projectService.updateTask(draggedTask, {
+            startDate: newStart.toISOString().split("T")[0],
+            endDate: newEnd.toISOString().split("T")[0],
+          });
+        }
+      }
+      setDraggedTask(null);
+    };
+
+    // Helper to generate days
+    const getDaysForMonth = (monthDate: Date) => {
+      const year = monthDate.getFullYear();
+      const month = monthDate.getMonth();
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      const days = [];
+
+      for (let i = 0; i < firstDay.getDay(); i++) {
+        days.push({
+          date: new Date(year, month, -firstDay.getDay() + 1 + i),
+          isCurrentMonth: false,
+        });
+      }
+      for (let i = 1; i <= lastDay.getDate(); i++) {
+        days.push({ date: new Date(year, month, i), isCurrentMonth: true });
+      }
+      while (days.length % 7 !== 0) {
+        const d = new Date(
+          year,
+          month + 1,
+          days.length - (firstDay.getDay() + lastDay.getDate()) + 1
+        );
+        days.push({ date: d, isCurrentMonth: false });
+      }
+      return days;
+    };
+
+    return (
+      <div className="flex flex-col h-full bg-slate-50 relative">
+        {/* Jump to Today - Conditional */}
+        {showTodayButton && (
+          <div className="absolute top-4 right-6 z-20 animate-in fade-in zoom-in duration-300">
+            <button
+              onClick={scrollToToday}
+              className="flex items-center gap-2 text-xs font-bold px-4 py-2 bg-slate-900 text-white rounded-full shadow-lg hover:bg-slate-800 transition-all hover:scale-105"
+            >
+              <ArrowDown size={14} /> Jump to Today
+            </button>
+          </div>
+        )}
+
+        {/* Scrollable Container */}
+        <div
+          ref={scrollContainerRef}
+          className={`flex-1 overflow-y-auto custom-scrollbar ${
+            isDragging ? "cursor-grabbing" : "cursor-default"
+          }`}
+          onMouseDown={handleMouseDown}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          <div className="flex flex-col gap-8 p-6 pb-20 max-w-6xl mx-auto">
+            {months.map((month) => {
+              const days = getDaysForMonth(month);
+              const monthKey = getMonthKey(month);
+
+              return (
+                <div
+                  key={monthKey}
+                  ref={(el) => (monthRefs.current[monthKey] = el)}
+                  className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden scroll-mt-6"
+                >
+                  {/* Month Header */}
+                  <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                    <h3 className="text-lg font-bold text-slate-800">
+                      {month.toLocaleDateString("en-US", {
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </h3>
+                  </div>
+
+                  {/* Weekday Header */}
+                  <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50/30">
+                    {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
+                      (d) => (
+                        <div
+                          key={d}
+                          className="py-2 text-center text-[10px] font-bold text-slate-400 uppercase tracking-wide"
+                        >
+                          {d}
+                        </div>
+                      )
+                    )}
+                  </div>
+
+                  {/* Grid */}
+                  <div className="grid grid-cols-7 auto-rows-fr">
+                    {days.map((day, idx) => {
+                      const dayTasks = tasks.filter((t) => {
+                        const start = new Date(t.startDate);
+                        const end = new Date(t.endDate);
+                        start.setHours(0, 0, 0, 0);
+                        end.setHours(0, 0, 0, 0);
+                        const current = new Date(day.date);
+                        current.setHours(0, 0, 0, 0);
+                        return current >= start && current <= end;
+                      });
+
+                      const isToday =
+                        day.date.toDateString() === new Date().toDateString();
+
+                      return (
+                        <div
+                          key={idx}
+                          onDragOver={handleDragOver}
+                          onDrop={(e) => handleDropOnDay(e, day.date)}
+                          className={`min-h-[100px] border-b border-r border-slate-100 p-1.5 flex flex-col gap-1 transition-colors ${
+                            !day.isCurrentMonth
+                              ? "bg-slate-50/30 text-slate-300"
+                              : "bg-white"
+                          } ${draggedTask ? "hover:bg-blue-50" : ""}`}
+                        >
+                          <span
+                            className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full mb-1 ${
+                              isToday
+                                ? "bg-blue-600 text-white shadow-sm"
+                                : "text-slate-700"
+                            }`}
+                          >
+                            {day.date.getDate()}
+                          </span>
+
+                          <div className="flex-1 flex flex-col gap-1.5">
+                            {dayTasks.map((task) => (
+                              <div
+                                key={task.id}
+                                draggable
+                                onDragStart={(e) =>
+                                  handleTaskDragStart(e, task.id)
+                                }
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenEditModal(task);
+                                }}
+                                className={`text-[10px] px-2 py-1 rounded-md border cursor-pointer truncate shadow-sm hover:scale-[1.02] transition-transform font-medium ${
+                                  STATUS_CONFIG[task.status].color
+                                } ${STATUS_CONFIG[task.status].border}`}
+                                title={task.title}
+                              >
+                                {task.title}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Scroll Tip */}
+        <div className="absolute bottom-0 left-0 right-0 p-2 bg-white/90 backdrop-blur-md border-t border-slate-200 flex items-center justify-center text-xs text-slate-500 font-medium z-10">
+          <MousePointer size={14} className="mr-2 text-slate-400" />
+          Tip: Hold{" "}
+          <kbd className="mx-1 px-1 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-700 font-bold text-[10px]">
+            Right Click
+          </kbd>{" "}
+          to drag vertically
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className="flex flex-col h-screen w-full bg-slate-50 text-slate-900 font-sans overflow-hidden">
+    <div className="flex flex-col h-screen w-full bg-slate-50 text-slate-900 font-sans overflow-hidden relative">
       {/* --- Top Header Navigation (Transparent) --- */}
       <header className="flex-none px-6 py-4 bg-transparent z-30">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -1214,6 +1557,7 @@ const ProjectManager: React.FC = () => {
               {currentView === "timeline" && <CalendarIcon size={20} />}
               {currentView === "board" && <LayoutGrid size={20} />}
               {currentView === "analytics" && <PieChartIcon size={20} />}
+              {currentView === "calendar" && <CalendarDays size={20} />}
             </div>
             <div>
               <h1 className="text-xl font-bold text-slate-900 tracking-tight">
@@ -1283,6 +1627,16 @@ const ProjectManager: React.FC = () => {
               >
                 <PieChartIcon size={14} /> Analytics
               </button>
+              <button
+                onClick={() => setCurrentView("calendar")}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                  currentView === "calendar"
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                <CalendarDays size={14} /> Calendar
+              </button>
             </div>
           </div>
 
@@ -1296,42 +1650,6 @@ const ProjectManager: React.FC = () => {
             </button>
           </div>
         </div>
-
-        {/* Mobile View Switcher */}
-        <div className="mt-4 flex sm:hidden w-full border-t border-slate-100 pt-3">
-          <div className="flex p-1 bg-slate-100 rounded-lg border border-slate-200 w-full">
-            <button
-              onClick={() => setCurrentView("timeline")}
-              className={`flex-1 flex justify-center items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                currentView === "timeline"
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-500"
-              }`}
-            >
-              <CalendarIcon size={14} />
-            </button>
-            <button
-              onClick={() => setCurrentView("board")}
-              className={`flex-1 flex justify-center items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                currentView === "board"
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-500"
-              }`}
-            >
-              <LayoutGrid size={14} />
-            </button>
-            <button
-              onClick={() => setCurrentView("analytics")}
-              className={`flex-1 flex justify-center items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                currentView === "analytics"
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-500"
-              }`}
-            >
-              <PieChartIcon size={14} />
-            </button>
-          </div>
-        </div>
       </header>
 
       {/* --- Main Content Area --- */}
@@ -1339,7 +1657,34 @@ const ProjectManager: React.FC = () => {
         {currentView === "timeline" && <TimelineView />}
         {currentView === "board" && <BoardView />}
         {currentView === "analytics" && <AnalyticsView />}
+        {currentView === "calendar" && <CalendarView />}
       </main>
+
+      {/* --- Bottom Right Floating Toggle (Timeline <-> Calendar) --- */}
+      {(currentView === "timeline" || currentView === "calendar") && (
+        <button
+          onClick={() =>
+            setCurrentView(currentView === "timeline" ? "calendar" : "timeline")
+          }
+          className="fixed bottom-6 right-6 z-50 p-4 bg-slate-900 text-white rounded-full shadow-xl hover:bg-slate-800 hover:scale-105 transition-all group"
+          title={
+            currentView === "timeline"
+              ? "Switch to Calendar View"
+              : "Switch to Timeline View"
+          }
+        >
+          {currentView === "timeline" ? (
+            <CalendarDays size={24} />
+          ) : (
+            <CalendarIcon size={24} />
+          )}
+          <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-slate-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+            {currentView === "timeline"
+              ? "Switch to Calendar"
+              : "Switch to Timeline"}
+          </span>
+        </button>
+      )}
 
       {/* --- Add/Edit Task Modal --- */}
       <Modal
@@ -1348,6 +1693,7 @@ const ProjectManager: React.FC = () => {
         title={editingTaskId ? "Edit Task" : "Create New Task"}
       >
         <form onSubmit={handleSaveTask} className="space-y-5">
+          {/* ... Modal form content remains the same ... */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               Task Name
@@ -1394,8 +1740,6 @@ const ProjectManager: React.FC = () => {
               />
             </div>
           </div>
-
-          {/* Multi-Select User Input */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               Assignees
@@ -1408,7 +1752,6 @@ const ProjectManager: React.FC = () => {
               }
             />
           </div>
-
           <div className="grid grid-cols-2 gap-5">
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
@@ -1445,7 +1788,6 @@ const ProjectManager: React.FC = () => {
               </select>
             </div>
           </div>
-
           <div className="pt-4 flex gap-3">
             {editingTaskId && (
               <button
@@ -1453,8 +1795,7 @@ const ProjectManager: React.FC = () => {
                 onClick={handleDeleteTask}
                 className="px-4 py-2.5 text-sm font-semibold text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 rounded-lg transition-colors flex items-center justify-center gap-2"
               >
-                <Trash2 size={16} />
-                Delete
+                <Trash2 size={16} /> Delete
               </button>
             )}
             <button
@@ -1472,7 +1813,7 @@ const ProjectManager: React.FC = () => {
                 editingTaskId ? "flex-1" : "flex-1"
               } px-4 py-2.5 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-lg shadow-slate-200 transition-all flex items-center justify-center gap-2`}
             >
-              {editingTaskId ? <Save size={16} /> : <Plus size={16} />}
+              {editingTaskId ? <Save size={16} /> : <Plus size={16} />}{" "}
               {editingTaskId ? "Save Changes" : "Create Task"}
             </button>
           </div>

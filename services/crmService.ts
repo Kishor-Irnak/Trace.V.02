@@ -1,50 +1,55 @@
-import { Lead, LeadStatus } from '../types';
-import { db } from './firebase';
-import { onValue, push, ref, remove, set, update } from 'firebase/database';
+import { ref, push, update, remove, onValue, off } from "firebase/database";
+import { db } from "./firebase";
+import { authService } from "./authService";
 
-class CrmService {
-  private leads: Lead[] = [];
-  private listeners: ((leads: Lead[]) => void)[] = [];
-  private leadsRef = ref(db, 'leads');
+/* ================= HELPERS ================= */
 
-  constructor() {
-    // Realtime subscription to Firebase RTDB
-    onValue(this.leadsRef, (snapshot) => {
-      const data = snapshot.val() || {};
-      this.leads = Object.entries(data).map(([id, value]) => ({ id, ...(value as Omit<Lead, 'id'>) }));
-      this.notify();
-    });
-  }
+const getBasePath = () => {
+  const uid = authService.getUID();
+  if (!uid) throw new Error("AUTH_NOT_READY");
+  return `users/${uid}/leads`;
+};
 
-  // Subscribe to changes
-  subscribe(callback: (leads: Lead[]) => void) {
-    this.listeners.push(callback);
-    callback(this.leads);
-    return () => {
-      this.listeners = this.listeners.filter(l => l !== callback);
+const mapSnapshot = (snap: any) => {
+  if (!snap.exists()) return [];
+  return Object.entries(snap.val()).map(([id, value]) => ({
+    id,
+    ...(value as any),
+  }));
+};
+
+/* ================= SERVICE ================= */
+
+export const crmService = {
+  /* -------- CRUD -------- */
+
+  addLead(lead: any) {
+    return push(ref(db, getBasePath()), lead);
+  },
+
+  updateLead(id: string, data: any) {
+    return update(ref(db, `${getBasePath()}/${id}`), data);
+  },
+
+  deleteLead(id: string) {
+    return remove(ref(db, `${getBasePath()}/${id}`));
+  },
+
+  /* -------- REALTIME -------- */
+
+  subscribeLeads(callback: (leads: any[]) => void) {
+    const leadsRef = ref(db, getBasePath());
+
+    const handler = (snap: any) => {
+      callback(mapSnapshot(snap));
     };
-  }
 
-  private notify() {
-    this.listeners.forEach(l => l([...this.leads]));
-  }
+    onValue(leadsRef, handler);
+    return () => off(leadsRef, "value", handler);
+  },
 
-  async getLeads(): Promise<Lead[]> {
-    return [...this.leads];
-  }
-
-  async updateLeadStage(leadId: string, newStage: LeadStatus): Promise<void> {
-    await update(ref(db, `leads/${leadId}`), { stage: newStage, lastActivity: 'Just now' });
-  }
-
-  async addLead(lead: Omit<Lead, 'id'>): Promise<void> {
-    const newLeadRef = push(this.leadsRef);
-    await set(newLeadRef, { ...lead, lastActivity: lead.lastActivity ?? 'Just now' });
-  }
-
-  async deleteLead(id: string): Promise<void> {
-    await remove(ref(db, `leads/${id}`));
-  }
-}
-
-export const crmService = new CrmService();
+  /* 🔥 BACKWARD COMPATIBILITY (THIS FIXES YOUR ERROR) */
+  subscribe(callback: (leads: any[]) => void) {
+    return crmService.subscribeLeads(callback);
+  },
+};

@@ -1,74 +1,82 @@
-// services/authService.ts
-
 import {
   GoogleAuthProvider,
   User,
   createUserWithEmailAndPassword,
-  getAdditionalUserInfo,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut as firebaseSignOut,
   updateProfile,
 } from "firebase/auth";
-
 import { auth } from "./firebase";
-import { projectService } from "./projectService";
 
 const googleProvider = new GoogleAuthProvider();
 
+const AUTH_STORAGE_KEY = "trace_auth_user";
+
 export const authService = {
-  /* -------------------- AUTH STATE -------------------- */
-
+  /**
+   * 🔔 Global auth listener (syncs all tabs)
+   */
   onChange(callback: (user: User | null) => void) {
-    return onAuthStateChanged(auth, (user) => {
+    // Firebase auth listener
+    const unsubFirebase = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        localStorage.setItem(
+          AUTH_STORAGE_KEY,
+          JSON.stringify({ uid: user.uid })
+        );
+      } else {
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+      }
       callback(user);
-
-      // 🔐 IMPORTANT: refresh task list when user changes
-      projectService.clearUserTasks();
     });
-  },
 
-  /* -------------------- SIGN UP -------------------- */
+    // 🔔 Multi-tab logout/login sync
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === AUTH_STORAGE_KEY && !e.newValue) {
+        callback(null); // logged out in another tab
+      }
+    };
+
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      unsubFirebase();
+      window.removeEventListener("storage", handleStorage);
+    };
+  },
 
   async signUp(email: string, password: string, displayName?: string) {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
-
     if (displayName) {
       await updateProfile(cred.user, { displayName });
     }
-
     return cred.user;
   },
-
-  /* -------------------- SIGN IN -------------------- */
 
   async signIn(email: string, password: string) {
     const cred = await signInWithEmailAndPassword(auth, email, password);
     return cred.user;
   },
 
-  /* -------------------- GOOGLE SIGN IN -------------------- */
-
   async signInWithGoogle() {
     const cred = await signInWithPopup(auth, googleProvider);
-
-    const info = getAdditionalUserInfo(cred);
-    if (info?.isNewUser && cred.user.displayName) {
-      await updateProfile(cred.user, {
-        displayName: cred.user.displayName,
-      });
-    }
-
     return cred.user;
   },
 
-  /* -------------------- LOGOUT (CRITICAL FIX) -------------------- */
-
-  async logout() {
+  /**
+   * 🚪 Logout everywhere (all tabs, all windows)
+   */
+  async signOut() {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
     await firebaseSignOut(auth);
+  },
 
-    // ✅ CLEAR PREVIOUS USER DATA (FIXES DATA LEAK)
-    projectService.clearUserTasks();
+  /**
+   * 🔐 Get current user UID safely
+   */
+  getUID() {
+    return auth.currentUser?.uid || null;
   },
 };

@@ -1,9 +1,20 @@
-// services/projectService.ts
-import { auth } from "./firebase";
+import {
+  ref,
+  push,
+  update,
+  remove,
+  onValue,
+  off,
+  DataSnapshot,
+} from "firebase/database";
+import { db } from "./firebase";
+import { authService } from "./authService";
+
+/* ================= TYPES ================= */
 
 export type TaskStatus = "todo" | "in-progress" | "review" | "done";
 
-export type Task = {
+export interface Task {
   id: string;
   title: string;
   status: TaskStatus;
@@ -11,130 +22,87 @@ export type Task = {
   endDate: string;
   value: number;
   assignees: string[];
-  userId: string; // 🔐 owner
-};
-
-type TasksListener = (tasks: Task[]) => void;
-type ProjectNameListener = (name: string) => void;
-
-class ProjectService {
-  private tasks: Task[] = [];
-  private projectName = "My Tasks";
-
-  private taskListeners: TasksListener[] = [];
-  private projectNameListeners: ProjectNameListener[] = [];
-
-  constructor() {
-    const storedTasks = localStorage.getItem("tasks");
-    const storedProjectName = localStorage.getItem("projectName");
-
-    this.tasks = storedTasks ? JSON.parse(storedTasks) : [];
-    this.projectName = storedProjectName || this.projectName;
-  }
-
-  /* -------------------- helpers -------------------- */
-
-  private emitTasks() {
-    localStorage.setItem("tasks", JSON.stringify(this.tasks));
-
-    const user = auth.currentUser;
-    const userTasks = user
-      ? this.tasks.filter((t) => t.userId === user.uid)
-      : [];
-
-    this.taskListeners.forEach((cb) => cb(userTasks));
-  }
-
-  private emitProjectName() {
-    localStorage.setItem("projectName", this.projectName);
-    this.projectNameListeners.forEach((cb) => cb(this.projectName));
-  }
-
-  /* -------------------- subscriptions -------------------- */
-
-  subscribeTasks(callback: TasksListener) {
-    this.taskListeners.push(callback);
-
-    const user = auth.currentUser;
-    const userTasks = user
-      ? this.tasks.filter((t) => t.userId === user.uid)
-      : [];
-
-    callback(userTasks);
-
-    return () => {
-      this.taskListeners = this.taskListeners.filter((cb) => cb !== callback);
-    };
-  }
-
-  subscribeProjectName(callback: ProjectNameListener) {
-    this.projectNameListeners.push(callback);
-    callback(this.projectName);
-
-    return () => {
-      this.projectNameListeners = this.projectNameListeners.filter(
-        (cb) => cb !== callback
-      );
-    };
-  }
-
-  /* -------------------- project -------------------- */
-
-  async updateProjectName(name: string) {
-    this.projectName = name;
-    this.emitProjectName();
-  }
-
-  /* -------------------- CRUD -------------------- */
-
-  async addTask(task: Omit<Task, "id" | "userId">) {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    const newTask: Task = {
-      id: crypto.randomUUID(),
-      title: task.title,
-      status: task.status,
-      startDate: task.startDate,
-      endDate: task.endDate,
-      value: task.value ?? 0,
-      assignees: task.assignees ?? [],
-      userId: user.uid, // ✅ KEY FIX
-    };
-
-    this.tasks.push(newTask);
-    this.emitTasks();
-  }
-
-  async updateTask(id: string, updates: Partial<Task>) {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    this.tasks = this.tasks.map((task) =>
-      task.id === id && task.userId === user.uid
-        ? { ...task, ...updates }
-        : task
-    );
-
-    this.emitTasks();
-  }
-
-  async deleteTask(id: string) {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    this.tasks = this.tasks.filter(
-      (task) => !(task.id === id && task.userId === user.uid)
-    );
-
-    this.emitTasks();
-  }
-
-  /* -------------------- logout cleanup -------------------- */
-
-  clearUserTasks() {
-    this.emitTasks(); // re-filter tasks for new user
-  }
 }
 
-export const projectService = new ProjectService();
+/* ================= HELPERS ================= */
+
+const getUserBasePath = () => {
+  const uid = authService.getUID();
+  if (!uid) throw new Error("User not authenticated");
+  return `users/${uid}`;
+};
+
+const mapSnapshotToArray = <T>(snapshot: DataSnapshot): T[] => {
+  if (!snapshot.exists()) return [];
+  const data = snapshot.val();
+  return Object.entries(data).map(([id, value]) => ({
+    id,
+    ...(value as any),
+  }));
+};
+
+/* ================= SERVICE ================= */
+
+export const projectService = {
+  /* ---------- TASKS ---------- */
+
+  async addTask(task: Omit<Task, "id">) {
+    const basePath = getUserBasePath();
+    const taskRef = ref(db, `${basePath}/tasks`);
+    await push(taskRef, task);
+  },
+
+  async updateTask(taskId: string, updates: Partial<Task>) {
+    const basePath = getUserBasePath();
+    await update(ref(db, `${basePath}/tasks/${taskId}`), updates);
+  },
+
+  async deleteTask(taskId: string) {
+    const basePath = getUserBasePath();
+    await remove(ref(db, `${basePath}/tasks/${taskId}`));
+  },
+
+  /**
+   * 🔴 REALTIME TASK SUBSCRIPTION
+   * Used in ProjectManager.tsx
+   */
+  subscribeTasks(callback: (tasks: Task[]) => void) {
+    const basePath = getUserBasePath();
+    const tasksRef = ref(db, `${basePath}/tasks`);
+
+    const handler = (snapshot: DataSnapshot) => {
+      const tasks = mapSnapshotToArray<Task>(snapshot);
+      callback(tasks);
+    };
+
+    onValue(tasksRef, handler);
+
+    return () => off(tasksRef, "value", handler);
+  },
+
+  /* ---------- PROJECT NAME ---------- */
+
+  async updateProjectName(name: string) {
+    const basePath = getUserBasePath();
+    await update(ref(db, `${basePath}/meta`), {
+      projectName: name,
+    });
+  },
+
+  /**
+   * 🔴 REALTIME PROJECT NAME SUBSCRIPTION
+   */
+  subscribeProjectName(callback: (name: string) => void) {
+    const basePath = getUserBasePath();
+    const metaRef = ref(db, `${basePath}/meta`);
+
+    const handler = (snapshot: DataSnapshot) => {
+      const val = snapshot.val();
+      callback(val?.projectName || "My Project");
+    };
+
+    onValue(metaRef, handler);
+
+    return () => off(metaRef, "value", handler);
+  },
+};
