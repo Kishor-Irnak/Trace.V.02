@@ -10,6 +10,12 @@ const getBasePath = () => {
   return `users/${uid}/leads`;
 };
 
+const getSettingsPath = () => {
+  const uid = authService.getUID();
+  if (!uid) throw new Error("AUTH_NOT_READY");
+  return `users/${uid}/settings`;
+};
+
 const mapSnapshot = (snap: any) => {
   if (!snap.exists()) return [];
   return Object.entries(snap.val()).map(([id, value]) => ({
@@ -21,7 +27,7 @@ const mapSnapshot = (snap: any) => {
 /* ================= SERVICE ================= */
 
 export const crmService = {
-  /* -------- CRUD -------- */
+  /* -------- CRUD LEADS -------- */
 
   addLead(lead: any) {
     return push(ref(db, getBasePath()), lead);
@@ -35,7 +41,28 @@ export const crmService = {
     return remove(ref(db, `${getBasePath()}/${id}`));
   },
 
-  /* -------- REALTIME -------- */
+  /* -------- SETTINGS (ROLES) -------- */
+
+  async saveUserRole(role: string) {
+    const settingsRef = ref(db, getSettingsPath());
+    await update(settingsRef, { role });
+  },
+
+  subscribeSettings(callback: (settings: any) => void) {
+    // Wait for auth to be ready if needed, usually handled in component
+    try {
+      const settingsRef = ref(db, getSettingsPath());
+      const handler = (snap: any) => {
+        callback(snap.val() || {});
+      };
+      onValue(settingsRef, handler);
+      return () => off(settingsRef, "value", handler);
+    } catch (e) {
+      return () => {};
+    }
+  },
+
+  /* -------- REALTIME LEADS -------- */
 
   subscribeLeads(callback: (leads: any[]) => void) {
     const leadsRef = ref(db, getBasePath());
@@ -48,7 +75,6 @@ export const crmService = {
     return () => off(leadsRef, "value", handler);
   },
 
-  /* 🔥 BACKWARD COMPATIBILITY (THIS FIXES YOUR ERROR) */
   subscribe(callback: (leads: any[]) => void) {
     return crmService.subscribeLeads(callback);
   },

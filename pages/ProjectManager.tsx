@@ -39,8 +39,6 @@ import {
 } from "recharts";
 import { projectService, Task, TaskStatus } from "../services/projectService";
 
-// --- Configuration ---
-
 const STATUS_CONFIG: Record<
   TaskStatus,
   {
@@ -81,17 +79,12 @@ const STATUS_CONFIG: Record<
   },
 };
 
-// --- Helpers ---
-
 const getInitials = (name: string) => {
   if (!name) return "";
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return parts[0][0].toUpperCase();
-  const firstInitial = parts[0][0].toUpperCase();
-  const lastInitial = parts[parts.length - 1][0].toUpperCase();
-  return firstInitial + lastInitial;
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 };
-
 const getColorForName = (name: string) => {
   const colors = [
     "bg-blue-600",
@@ -110,7 +103,6 @@ const getColorForName = (name: string) => {
   }
   return colors[Math.abs(hash) % colors.length];
 };
-
 const getDaysArray = (start: Date, end: Date) => {
   const arr = [];
   const dt = new Date(start);
@@ -120,40 +112,29 @@ const getDaysArray = (start: Date, end: Date) => {
   }
   return arr;
 };
-
 const getMonthsArray = (start: Date, end: Date) => {
   const months = [];
   const d = new Date(start);
   d.setDate(1);
   d.setHours(0, 0, 0, 0);
-
   const endDate = new Date(end);
   endDate.setDate(1);
   endDate.setHours(0, 0, 0, 0);
-
   while (d <= endDate) {
     months.push(new Date(d));
     d.setMonth(d.getMonth() + 1);
   }
   return months;
 };
-
-// Helper to generate consistent keys for months (YYYY-MM) using LOCAL time
-const getMonthKey = (date: Date) => {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
-    2,
-    "0"
-  )}`;
-};
-
+const getMonthKey = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+// FIX: Use maximumFractionDigits instead of maximumSignificantDigits
 const formatCurrency = (val: number) =>
   new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
     maximumFractionDigits: 0,
   }).format(val);
-
-// --- Sub-Components ---
 
 const Avatar = ({
   name,
@@ -175,7 +156,6 @@ const Avatar = ({
     </div>
   );
 };
-
 const AvatarGroup = ({ names }: { names: string[] }) => {
   const safeNames = Array.isArray(names) ? names : [];
   if (safeNames.length === 0) return <div className="h-6"></div>;
@@ -206,9 +186,7 @@ const MultiSelectUser = ({
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
-
   const safeSelectedUsers = Array.isArray(selectedUsers) ? selectedUsers : [];
-
   useEffect(() => {
     if (inputValue.trim() === "") {
       setSuggestions([]);
@@ -222,7 +200,6 @@ const MultiSelectUser = ({
     setSuggestions(filtered);
     setShowSuggestions(filtered.length > 0);
   }, [inputValue, allKnownUsers, safeSelectedUsers]);
-
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -235,7 +212,6 @@ const MultiSelectUser = ({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
   const addUser = (name: string) => {
     const cleanName = name.trim().replace(/\s+/g, " ");
     if (cleanName && !safeSelectedUsers.includes(cleanName)) {
@@ -244,11 +220,9 @@ const MultiSelectUser = ({
     setInputValue("");
     setShowSuggestions(false);
   };
-
   const removeUser = (name: string) => {
     onChange(safeSelectedUsers.filter((u) => u !== name));
   };
-
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -265,13 +239,11 @@ const MultiSelectUser = ({
       removeUser(safeSelectedUsers[safeSelectedUsers.length - 1]);
     }
   };
-
   const handleBlur = () => {
     if (inputValue.trim()) {
       addUser(inputValue.trim());
     }
   };
-
   return (
     <div className="relative" ref={wrapperRef}>
       <div className="flex flex-wrap gap-2 p-2 bg-slate-50 border border-slate-200 rounded-lg min-h-[42px] focus-within:ring-2 focus-within:ring-slate-900/10 focus-within:bg-white transition-all">
@@ -310,7 +282,6 @@ const MultiSelectUser = ({
           }}
         />
       </div>
-
       {showSuggestions && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-slate-100 rounded-lg shadow-lg max-h-48 overflow-y-auto">
           {suggestions.map((name, idx) => (
@@ -367,19 +338,15 @@ const Modal = ({
   );
 };
 
-// --- Main Component ---
-
 const ProjectManager: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [currentView, setCurrentView] = useState<
     "timeline" | "board" | "analytics" | "calendar"
   >("timeline");
   const [isModalOpen, setIsModalOpen] = useState(false);
-
   const [projectName, setProjectName] = useState("Q4 Engineering Sprint");
   const [isEditingProjectName, setIsEditingProjectName] = useState(false);
   const projectNameInputRef = useRef<HTMLInputElement>(null);
-
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<Task>>({
     title: "",
@@ -390,45 +357,33 @@ const ProjectManager: React.FC = () => {
     assignees: [],
   });
 
-  // --- Subscriptions ---
-
   useEffect(() => {
-    const unsubscribe = projectService.subscribeTasks((data) => {
-      setTasks(data);
-    });
+    const unsubscribe = projectService.subscribeTasks((data) => setTasks(data));
     return () => unsubscribe();
   }, []);
-
   useEffect(() => {
-    const unsubscribe = projectService.subscribeProjectName((name) => {
-      setProjectName(name);
-    });
+    const unsubscribe = projectService.subscribeProjectName((name) =>
+      setProjectName(name)
+    );
     return () => unsubscribe();
   }, []);
-
   const handleProjectNameSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     await projectService.updateProjectName(projectName);
     setIsEditingProjectName(false);
   };
-
   useEffect(() => {
-    if (isEditingProjectName && projectNameInputRef.current) {
+    if (isEditingProjectName && projectNameInputRef.current)
       projectNameInputRef.current.focus();
-    }
   }, [isEditingProjectName]);
-
   const allKnownUsers = useMemo(() => {
     const names = new Set<string>();
     tasks.forEach((t) => {
-      if (t.assignees && Array.isArray(t.assignees)) {
+      if (t.assignees && Array.isArray(t.assignees))
         t.assignees.forEach((a) => names.add(a));
-      }
     });
     return Array.from(names).sort();
   }, [tasks]);
-
-  // --- CRUD Handlers ---
 
   const handleOpenCreateModal = () => {
     setEditingTaskId(null);
@@ -442,7 +397,6 @@ const ProjectManager: React.FC = () => {
     });
     setIsModalOpen(true);
   };
-
   const handleOpenEditModal = (task: Task) => {
     setEditingTaskId(task.id);
     setFormData({
@@ -452,14 +406,11 @@ const ProjectManager: React.FC = () => {
     });
     setIsModalOpen(true);
   };
-
   const handleSaveTask = async (e: React.FormEvent) => {
     e.preventDefault();
-
     const safeAssignees = Array.isArray(formData.assignees)
       ? formData.assignees
       : [];
-
     const taskData: any = {
       title: formData.title || "Untitled Task",
       value: Number(formData.value) || 0,
@@ -468,7 +419,6 @@ const ProjectManager: React.FC = () => {
       startDate: formData.startDate || new Date().toISOString().split("T")[0],
       endDate: formData.endDate || new Date().toISOString().split("T")[0],
     };
-
     try {
       if (editingTaskId) {
         await projectService.updateTask(editingTaskId, taskData);
@@ -481,29 +431,25 @@ const ProjectManager: React.FC = () => {
       alert("Failed to save task. Please try again.");
     }
   };
-
   const handleDeleteTask = async () => {
-    if (editingTaskId) {
-      if (window.confirm("Are you sure you want to delete this task?")) {
-        await projectService.deleteTask(editingTaskId);
-        setIsModalOpen(false);
-      }
+    if (
+      editingTaskId &&
+      window.confirm("Are you sure you want to delete this task?")
+    ) {
+      await projectService.deleteTask(editingTaskId);
+      setIsModalOpen(false);
     }
   };
 
-  // --- Drag & Drop (Generic) ---
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
-
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
     setDraggedTaskId(taskId);
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", taskId);
   };
-
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
   };
-
   const handleDropStatus = async (e: React.DragEvent, status: TaskStatus) => {
     e.preventDefault();
     if (draggedTaskId) {
@@ -512,8 +458,6 @@ const ProjectManager: React.FC = () => {
     setDraggedTaskId(null);
   };
 
-  // --- Views ---
-
   const AnalyticsView = () => {
     const totalTasks = tasks.length;
     const completedTasks = tasks.filter((t) => t.status === "done").length;
@@ -521,7 +465,6 @@ const ProjectManager: React.FC = () => {
       totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
     const totalValue = tasks.reduce((acc, t) => acc + t.value, 0);
     const avgValue = totalTasks > 0 ? totalValue / totalTasks : 0;
-
     const statusData = Object.keys(STATUS_CONFIG)
       .map((key) => {
         const status = key as TaskStatus;
@@ -532,7 +475,6 @@ const ProjectManager: React.FC = () => {
         };
       })
       .filter((d) => d.value > 0);
-
     const valueByStatusData = Object.keys(STATUS_CONFIG).map((key) => {
       const status = key as TaskStatus;
       return {
@@ -543,7 +485,6 @@ const ProjectManager: React.FC = () => {
         fill: STATUS_CONFIG[status].chartColor,
       };
     });
-
     const workloadData: Record<string, number> = {};
     tasks.forEach((task) => {
       if (task.assignees && Array.isArray(task.assignees)) {
@@ -552,21 +493,15 @@ const ProjectManager: React.FC = () => {
         });
       }
     });
-
     const workloadChartData = Object.entries(workloadData)
-      .map(([name, count]) => ({
-        name,
-        tasks: count,
-      }))
+      .map(([name, count]) => ({ name, tasks: count }))
       .sort((a, b) => b.tasks - a.tasks);
-
     const kpiColor = {
       primary: "text-slate-900",
       secondary: "bg-slate-50 text-slate-700",
       success: "text-emerald-600",
       iconBg: "bg-slate-100 text-slate-700",
     };
-
     return (
       <div className="h-full overflow-y-auto p-6 bg-slate-50/50">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -584,11 +519,7 @@ const ProjectManager: React.FC = () => {
                 <DollarSign size={20} />
               </div>
             </div>
-            <div className="mt-4 text-xs text-slate-500 font-medium">
-              Avg: {formatCurrency(avgValue)} per task
-            </div>
           </div>
-
           <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm flex flex-col justify-between">
             <div className="flex justify-between items-start">
               <div>
@@ -610,57 +541,7 @@ const ProjectManager: React.FC = () => {
               ></div>
             </div>
           </div>
-
-          <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm flex flex-col justify-between">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                  Total Tasks
-                </p>
-                <h3 className={`text-2xl font-bold ${kpiColor.primary} mt-1`}>
-                  {totalTasks}
-                </h3>
-              </div>
-              <div className={`p-2 rounded-lg ${kpiColor.iconBg}`}>
-                <LayoutGrid size={20} />
-              </div>
-            </div>
-            <div className="mt-4 flex gap-2">
-              <span
-                className={`text-xs px-2 py-1 rounded font-medium ${kpiColor.secondary}`}
-              >
-                {tasks.filter((t) => t.status === "in-progress").length} Active
-              </span>
-              <span
-                className={`text-xs px-2 py-1 rounded font-medium ${kpiColor.secondary}`}
-              >
-                {tasks.filter((t) => t.status === "todo").length} Pending
-              </span>
-            </div>
-          </div>
-
-          <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm flex flex-col justify-between">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                  Velocity
-                </p>
-                <h3 className="text-2xl font-bold text-slate-900 mt-1">
-                  On Track
-                </h3>
-              </div>
-              <div className={`p-2 rounded-lg ${kpiColor.iconBg}`}>
-                <TrendingUp size={20} />
-              </div>
-            </div>
-            <div
-              className={`mt-4 text-xs font-medium flex items-center gap-1 ${kpiColor.success}`}
-            >
-              <CheckCircle2 size={12} /> Based on deadlines
-            </div>
-          </div>
         </div>
-
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
             <h4 className="text-sm font-bold text-slate-800 mb-6">
@@ -686,24 +567,11 @@ const ProjectManager: React.FC = () => {
                       />
                     ))}
                   </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: "8px",
-                      border: "1px solid #e2e8f0",
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-                    }}
-                    itemStyle={{ fontSize: "12px", fontWeight: "bold" }}
-                  />
-                  <Legend
-                    verticalAlign="bottom"
-                    height={36}
-                    iconType="circle"
-                  />
+                  <Tooltip />
                 </PieChart>
               </ResponsiveContainer>
             </div>
           </div>
-
           <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
             <h4 className="text-sm font-bold text-slate-800 mb-6">
               Project Value by Stage
@@ -716,26 +584,9 @@ const ProjectManager: React.FC = () => {
                     vertical={false}
                     stroke="#f1f5f9"
                   />
-                  <XAxis
-                    dataKey="name"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 12, fill: "#64748b" }}
-                    dy={10}
-                  />
-                  <YAxis
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 12, fill: "#64748b" }}
-                    tickFormatter={(value) => `₹${value / 1000}k`}
-                  />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                  <YAxis axisLine={false} tickLine={false} />
                   <Tooltip
-                    cursor={{ fill: "#f8fafc" }}
-                    contentStyle={{
-                      borderRadius: "8px",
-                      border: "1px solid #e2e8f0",
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-                    }}
                     formatter={(value: number) => formatCurrency(value)}
                   />
                   <Bar dataKey="amount" radius={[4, 4, 0, 0]} barSize={40} />
@@ -744,60 +595,14 @@ const ProjectManager: React.FC = () => {
             </div>
           </div>
         </div>
-
-        <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm mb-6">
-          <h4 className="text-sm font-bold text-slate-800 mb-6">
-            Workload by Person
-          </h4>
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={workloadChartData}
-                layout="vertical"
-                margin={{ left: 20 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  horizontal={false}
-                  stroke="#f1f5f9"
-                />
-                <XAxis type="number" axisLine={false} tickLine={false} hide />
-                <YAxis
-                  dataKey="name"
-                  type="category"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 12, fill: "#334155", fontWeight: 500 }}
-                  width={100}
-                />
-                <Tooltip
-                  cursor={{ fill: "#f8fafc" }}
-                  contentStyle={{
-                    borderRadius: "8px",
-                    border: "1px solid #e2e8f0",
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-                  }}
-                />
-                <Bar
-                  dataKey="tasks"
-                  fill="#1e293b"
-                  radius={[0, 4, 4, 0]}
-                  barSize={20}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
       </div>
     );
   };
 
   const BoardView = () => {
-    // Refs for Drag-to-Scroll
     const boardContainerRef = useRef<HTMLDivElement>(null);
     const [isBoardDragging, setIsBoardDragging] = useState(false);
     const boardDragStart = useRef({ x: 0, left: 0 });
-
     const handleBoardMouseDown = (e: React.MouseEvent) => {
       if (e.button === 2 && boardContainerRef.current) {
         e.preventDefault();
@@ -808,7 +613,6 @@ const ProjectManager: React.FC = () => {
         };
       }
     };
-
     const handleBoardMouseMove = useCallback(
       (e: MouseEvent) => {
         if (!isBoardDragging || !boardContainerRef.current) return;
@@ -820,11 +624,9 @@ const ProjectManager: React.FC = () => {
       },
       [isBoardDragging]
     );
-
     const handleBoardMouseUp = useCallback(() => {
       setIsBoardDragging(false);
     }, []);
-
     useEffect(() => {
       if (isBoardDragging) {
         window.addEventListener("mousemove", handleBoardMouseMove);
@@ -838,7 +640,6 @@ const ProjectManager: React.FC = () => {
         window.removeEventListener("mouseup", handleBoardMouseUp);
       };
     }, [isBoardDragging, handleBoardMouseMove, handleBoardMouseUp]);
-
     return (
       <div className="h-full flex flex-col relative overflow-hidden">
         <div
@@ -853,7 +654,6 @@ const ProjectManager: React.FC = () => {
             const status = statusKey as TaskStatus;
             const columnTasks = tasks.filter((t) => t.status === status);
             const totalValue = columnTasks.reduce((acc, t) => acc + t.value, 0);
-
             return (
               <div
                 key={status}
@@ -884,14 +684,10 @@ const ProjectManager: React.FC = () => {
                     <Plus size={14} />
                   </button>
                 </div>
-
                 <div className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar">
-                  {totalValue > 0 && (
-                    <div className="text-[10px] text-slate-400 font-medium text-right px-1">
-                      Potential: {formatCurrency(totalValue)}
-                    </div>
-                  )}
-
+                  <div className="text-[10px] text-slate-400 font-medium text-right px-1">
+                    Potential: {formatCurrency(totalValue)}
+                  </div>
                   {columnTasks.map((task) => (
                     <div
                       key={task.id}
@@ -902,12 +698,7 @@ const ProjectManager: React.FC = () => {
                     >
                       <div className="flex justify-between items-start mb-2">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide truncate max-w-[120px]">
-                          {task.assignees && task.assignees.length > 0
-                            ? task.assignees[0]
-                            : "Unassigned"}
-                          {task.assignees &&
-                            task.assignees.length > 1 &&
-                            ` +${task.assignees.length - 1}`}
+                          {task.assignees?.[0] || "Unassigned"}
                         </span>
                         <button
                           type="button"
@@ -916,11 +707,9 @@ const ProjectManager: React.FC = () => {
                           <Edit2 size={12} />
                         </button>
                       </div>
-
                       <h4 className="text-sm font-semibold text-slate-900 mb-3 leading-snug">
                         {task.title}
                       </h4>
-
                       <div className="flex items-center justify-between pt-2 border-t border-slate-50">
                         <div className="flex items-center gap-2">
                           <AvatarGroup names={task.assignees || []} />
@@ -931,37 +720,13 @@ const ProjectManager: React.FC = () => {
                           </span>
                         )}
                       </div>
-
-                      <div
-                        className={`mt-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${
-                          new Date(task.endDate) < new Date()
-                            ? "bg-red-50 text-red-600 border-red-100"
-                            : "bg-slate-50 text-slate-500 border-slate-100"
-                        }`}
-                      >
-                        <Clock size={10} />
-                        {new Date(task.endDate).toLocaleDateString(undefined, {
-                          month: "short",
-                          day: "numeric",
-                        })}
-                      </div>
                     </div>
                   ))}
-
-                  {columnTasks.length === 0 && (
-                    <div className="h-24 border-2 border-dashed border-slate-100 rounded-lg flex flex-col items-center justify-center text-slate-300 gap-1">
-                      <span className="text-xs font-medium">No Tasks</span>
-                      <span className="text-[10px] text-slate-200">
-                        Drag items here
-                      </span>
-                    </div>
-                  )}
                 </div>
               </div>
             );
           })}
         </div>
-        {/* Scroll Tip */}
         <div className="flex-none p-2 border-t border-slate-100 bg-white/70 backdrop-blur-sm flex items-center justify-center text-xs text-slate-500 font-medium z-30 relative">
           <MousePointer size={14} className="mr-2 text-slate-400" />
           Tip: Hold{" "}
@@ -979,13 +744,11 @@ const ProjectManager: React.FC = () => {
     const [isDragging, setIsDragging] = useState(false);
     const dragStart = useRef({ x: 0, left: 0 });
     const dayWidth = 60;
-
     const { earliestDate, latestDate, initialScrollPosition } = useMemo(() => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       let minDate = new Date();
       let maxDate = new Date();
-
       if (tasks.length > 0) {
         minDate = new Date(tasks[0].startDate);
         maxDate = new Date(tasks[0].endDate);
@@ -996,37 +759,30 @@ const ProjectManager: React.FC = () => {
           if (end > maxDate) maxDate = end;
         });
       }
-
       const bufferedMinDate = new Date(minDate);
       bufferedMinDate.setDate(bufferedMinDate.getDate() - 180);
-
       const bufferedMaxDate = new Date(maxDate);
       bufferedMaxDate.setDate(bufferedMaxDate.getDate() + 180);
-
       const daysFromStartToToday = Math.ceil(
         (today.getTime() - bufferedMinDate.getTime()) / (1000 * 3600 * 24)
       );
       const initialScroll =
         daysFromStartToToday * dayWidth - window.innerWidth / 2;
-
       return {
         earliestDate: bufferedMinDate,
         latestDate: bufferedMaxDate,
         initialScrollPosition: Math.max(0, initialScroll),
       };
     }, [tasks]);
-
     const dates = useMemo(
       () => getDaysArray(earliestDate, latestDate),
       [earliestDate, latestDate]
     );
-
     useEffect(() => {
       if (scrollContainerRef.current) {
         scrollContainerRef.current.scrollLeft = initialScrollPosition;
       }
     }, [initialScrollPosition]);
-
     const handleMouseDown = (e: React.MouseEvent) => {
       if (e.button === 2 && scrollContainerRef.current) {
         e.preventDefault();
@@ -1037,7 +793,6 @@ const ProjectManager: React.FC = () => {
         };
       }
     };
-
     const handleMouseMove = useCallback(
       (e: MouseEvent) => {
         if (!isDragging || !scrollContainerRef.current) return;
@@ -1048,11 +803,9 @@ const ProjectManager: React.FC = () => {
       },
       [isDragging]
     );
-
     const handleMouseUp = useCallback(() => {
       setIsDragging(false);
     }, []);
-
     useEffect(() => {
       if (isDragging) {
         window.addEventListener("mousemove", handleMouseMove);
@@ -1066,28 +819,20 @@ const ProjectManager: React.FC = () => {
         window.removeEventListener("mouseup", handleMouseUp);
       };
     }, [isDragging, handleMouseMove, handleMouseUp]);
-
-    const handleContextMenu = (e: React.MouseEvent) => {
-      e.preventDefault();
-    };
-
     const getTaskStyle = (taskStart: string, taskEnd: string) => {
       const tStart = new Date(taskStart);
       tStart.setHours(0, 0, 0, 0);
       const tEnd = new Date(taskEnd);
       tEnd.setHours(0, 0, 0, 0);
-
       const startDiff =
         (tStart.getTime() - earliestDate.getTime()) / (1000 * 3600 * 24);
       const duration =
         (tEnd.getTime() - tStart.getTime()) / (1000 * 3600 * 24) + 1;
-
       return {
         left: `${startDiff * dayWidth}px`,
         width: `${Math.max(1, duration) * dayWidth}px`,
       };
     };
-
     return (
       <div className="flex-1 overflow-hidden relative flex flex-col h-full bg-white">
         <div
@@ -1096,77 +841,44 @@ const ProjectManager: React.FC = () => {
             isDragging ? "cursor-grabbing" : "cursor-default"
           }`}
           onMouseDown={handleMouseDown}
-          onContextMenu={handleContextMenu}
+          onContextMenu={(e) => e.preventDefault()}
         >
           <div
             className="min-w-max pb-20"
             style={{ width: `${dates.length * dayWidth}px` }}
           >
-            {/* Header */}
             <div className="flex sticky top-0 bg-white/95 backdrop-blur-sm z-20 border-b border-slate-200 shadow-sm">
-              {dates.map((date, i) => {
-                const isToday =
-                  new Date().toDateString() === date.toDateString();
-                const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-
-                return (
-                  <div
-                    key={i}
-                    className={`flex-shrink-0 flex flex-col items-center justify-end pb-2 h-14 border-r border-slate-50 ${
-                      isWeekend ? "bg-slate-50/50" : ""
+              {dates.map((date, i) => (
+                <div
+                  key={i}
+                  className="flex-shrink-0 flex flex-col items-center justify-end pb-2 h-14 border-r border-slate-50"
+                  style={{ width: dayWidth }}
+                >
+                  <span className="text-[10px] uppercase text-slate-400 font-bold tracking-wider mb-1">
+                    {date.toLocaleDateString("en-US", { weekday: "narrow" })}
+                  </span>
+                  <span
+                    className={`text-sm font-bold w-7 h-7 flex items-center justify-center rounded-full ${
+                      new Date().toDateString() === date.toDateString()
+                        ? "bg-slate-900 text-white shadow-md"
+                        : "text-slate-700"
                     }`}
-                    style={{ width: dayWidth }}
                   >
-                    <span className="text-[10px] uppercase text-slate-400 font-bold tracking-wider mb-1">
-                      {date.toLocaleDateString("en-US", { weekday: "narrow" })}
-                    </span>
-                    <span
-                      className={`text-sm font-bold w-7 h-7 flex items-center justify-center rounded-full ${
-                        isToday
-                          ? "bg-slate-900 text-white shadow-md"
-                          : "text-slate-700"
-                      }`}
-                    >
-                      {date.getDate()}
-                    </span>
-                  </div>
-                );
-              })}
+                    {date.getDate()}
+                  </span>
+                </div>
+              ))}
             </div>
-
-            {/* Body */}
             <div className="relative pt-6 h-full">
-              {/* Grid Lines */}
               <div className="absolute inset-0 flex pointer-events-none h-full">
                 {dates.map((date, i) => (
                   <div
                     key={i}
-                    className={`flex-shrink-0 h-full border-r border-slate-100/80 ${
-                      date.getDay() === 0 || date.getDay() === 6
-                        ? "bg-slate-50/40"
-                        : ""
-                    }`}
+                    className="flex-shrink-0 h-full border-r border-slate-100/80"
                     style={{ width: dayWidth }}
                   ></div>
                 ))}
               </div>
-
-              {/* Today Line */}
-              <div
-                className="absolute top-0 bottom-0 w-px bg-blue-500 z-10 pointer-events-none"
-                style={{
-                  left: `${
-                    ((new Date().getTime() - earliestDate.getTime()) /
-                      (1000 * 3600 * 24)) *
-                      dayWidth +
-                    dayWidth / 2
-                  }px`,
-                }}
-              >
-                <div className="w-2 h-2 bg-blue-500 rounded-full absolute -top-1 -left-[3.5px]"></div>
-              </div>
-
-              {/* Tasks */}
               <div className="space-y-3 px-0 relative z-10">
                 {tasks.map((task) => {
                   const style = getTaskStyle(task.startDate, task.endDate);
@@ -1174,7 +886,7 @@ const ProjectManager: React.FC = () => {
                     <div key={task.id} className="relative h-14 group">
                       <div
                         onClick={() => handleOpenEditModal(task)}
-                        className={`absolute top-0 h-12 rounded-lg border shadow-[0_2px_4px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] transition-all cursor-pointer flex flex-col justify-center px-3 overflow-hidden group hover:scale-[1.01] z-10 ${
+                        className={`absolute top-0 h-12 rounded-lg border shadow-sm transition-all cursor-pointer flex flex-col justify-center px-3 overflow-hidden group hover:scale-[1.01] z-10 ${
                           STATUS_CONFIG[task.status].timelineStyle
                         }`}
                         style={{
@@ -1190,21 +902,10 @@ const ProjectManager: React.FC = () => {
                         </div>
                         <div className="flex items-center justify-between opacity-80">
                           <span className="text-[10px] font-semibold truncate max-w-[80px]">
-                            {task.assignees && task.assignees.length > 0
-                              ? task.assignees[0]
-                              : "Unassigned"}
-                            {task.assignees &&
-                              task.assignees.length > 1 &&
-                              ` +${task.assignees.length - 1}`}
+                            {task.assignees?.[0] || "Unassigned"}
                           </span>
-                          {task.value > 0 && (
-                            <span className="text-[9px] font-bold">
-                              {formatCurrency(task.value)}
-                            </span>
-                          )}
                         </div>
                       </div>
-                      <div className="absolute top-6 left-0 right-0 border-b border-slate-50 -z-10 w-full pointer-events-none"></div>
                     </div>
                   );
                 })}
@@ -1212,8 +913,6 @@ const ProjectManager: React.FC = () => {
             </div>
           </div>
         </div>
-
-        {/* Scroll Tip */}
         <div className="flex-none p-2 border-t border-slate-100 bg-white/70 backdrop-blur-sm flex items-center justify-center text-xs text-slate-500 font-medium z-30 relative">
           <MousePointer size={14} className="mr-2 text-slate-400" />
           Tip: Hold{" "}
@@ -1226,21 +925,17 @@ const ProjectManager: React.FC = () => {
     );
   };
 
-  // --- NEW Calendar View (Vertical Scroll) ---
   const CalendarView = () => {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const [isDragging, setIsDragging] = useState(false);
     const dragStart = useRef({ y: 0, top: 0 });
     const monthRefs = useRef<Record<string, HTMLDivElement | null>>({});
-
     const [draggedTask, setDraggedTask] = useState<string | null>(null);
     const [showTodayButton, setShowTodayButton] = useState(false);
 
-    // Dynamic Range: Determine start and end months from tasks
     const { startMonth, endMonth } = useMemo(() => {
       let minDate = new Date();
       let maxDate = new Date();
-
       if (tasks.length > 0) {
         minDate = new Date(tasks[0].startDate);
         maxDate = new Date(tasks[0].endDate);
@@ -1251,15 +946,12 @@ const ProjectManager: React.FC = () => {
           if (end > maxDate) maxDate = end;
         });
       }
-
       const bufferedStart = new Date(minDate);
       bufferedStart.setMonth(bufferedStart.getMonth() - 2);
       bufferedStart.setDate(1);
-
       const bufferedEnd = new Date(maxDate);
       bufferedEnd.setMonth(bufferedEnd.getMonth() + 4);
       bufferedEnd.setDate(1);
-
       return { startMonth: bufferedStart, endMonth: bufferedEnd };
     }, [tasks]);
 
@@ -1268,7 +960,6 @@ const ProjectManager: React.FC = () => {
       [startMonth, endMonth]
     );
 
-    // Check visibility of "Today"
     const checkTodayVisibility = useCallback(() => {
       const todayKey = getMonthKey(new Date());
       const todayEl = monthRefs.current[todayKey];
@@ -1276,14 +967,12 @@ const ProjectManager: React.FC = () => {
         setShowTodayButton(true);
         return;
       }
-
       const rect = todayEl.getBoundingClientRect();
       const containerRect = scrollContainerRef.current?.getBoundingClientRect();
-
       if (containerRect) {
-        const isOutOfView =
-          rect.bottom < containerRect.top || rect.top > containerRect.bottom;
-        setShowTodayButton(isOutOfView);
+        setShowTodayButton(
+          rect.bottom < containerRect.top || rect.top > containerRect.bottom
+        );
       }
     }, [months]);
 
@@ -1295,8 +984,6 @@ const ProjectManager: React.FC = () => {
       }
       return () => el?.removeEventListener("scroll", checkTodayVisibility);
     }, [checkTodayVisibility]);
-
-    // Initial Scroll to Today
     useEffect(() => {
       setTimeout(() => scrollToToday(), 100);
     }, []);
@@ -1304,12 +991,9 @@ const ProjectManager: React.FC = () => {
     const scrollToToday = () => {
       const todayKey = getMonthKey(new Date());
       const el = monthRefs.current[todayKey];
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
     };
 
-    // Vertical Drag Logic
     const handleMouseDown = (e: React.MouseEvent) => {
       if (e.button === 2 && scrollContainerRef.current) {
         e.preventDefault();
@@ -1320,7 +1004,6 @@ const ProjectManager: React.FC = () => {
         };
       }
     };
-
     const handleMouseMove = useCallback(
       (e: MouseEvent) => {
         if (!isDragging || !scrollContainerRef.current) return;
@@ -1331,11 +1014,9 @@ const ProjectManager: React.FC = () => {
       },
       [isDragging]
     );
-
     const handleMouseUp = useCallback(() => {
       setIsDragging(false);
     }, []);
-
     useEffect(() => {
       if (isDragging) {
         window.addEventListener("mousemove", handleMouseMove);
@@ -1350,14 +1031,11 @@ const ProjectManager: React.FC = () => {
       };
     }, [isDragging, handleMouseMove, handleMouseUp]);
 
-    // Calendar Task Drag & Drop
     const handleTaskDragStart = (e: React.DragEvent, taskId: string) => {
       setDraggedTask(taskId);
       e.dataTransfer.effectAllowed = "move";
     };
-
     const handleDragOver = (e: React.DragEvent) => e.preventDefault();
-
     const handleDropOnDay = async (e: React.DragEvent, date: Date) => {
       e.preventDefault();
       if (draggedTask) {
@@ -1366,11 +1044,9 @@ const ProjectManager: React.FC = () => {
           const oldStart = new Date(task.startDate);
           const oldEnd = new Date(task.endDate);
           const duration = oldEnd.getTime() - oldStart.getTime();
-
           const newStart = new Date(date);
           newStart.setHours(12, 0, 0, 0);
           const newEnd = new Date(newStart.getTime() + duration);
-
           await projectService.updateTask(draggedTask, {
             startDate: newStart.toISOString().split("T")[0],
             endDate: newEnd.toISOString().split("T")[0],
@@ -1380,14 +1056,12 @@ const ProjectManager: React.FC = () => {
       setDraggedTask(null);
     };
 
-    // Helper to generate days
     const getDaysForMonth = (monthDate: Date) => {
       const year = monthDate.getFullYear();
       const month = monthDate.getMonth();
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
       const days = [];
-
       for (let i = 0; i < firstDay.getDay(); i++) {
         days.push({
           date: new Date(year, month, -firstDay.getDay() + 1 + i),
@@ -1410,7 +1084,6 @@ const ProjectManager: React.FC = () => {
 
     return (
       <div className="flex flex-col h-full bg-slate-50 relative">
-        {/* Jump to Today - Conditional */}
         {showTodayButton && (
           <div className="absolute top-4 right-6 z-20 animate-in fade-in zoom-in duration-300">
             <button
@@ -1421,8 +1094,6 @@ const ProjectManager: React.FC = () => {
             </button>
           </div>
         )}
-
-        {/* Scrollable Container */}
         <div
           ref={scrollContainerRef}
           className={`flex-1 overflow-y-auto custom-scrollbar ${
@@ -1435,14 +1106,12 @@ const ProjectManager: React.FC = () => {
             {months.map((month) => {
               const days = getDaysForMonth(month);
               const monthKey = getMonthKey(month);
-
               return (
                 <div
                   key={monthKey}
                   ref={(el) => (monthRefs.current[monthKey] = el)}
                   className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden scroll-mt-6"
                 >
-                  {/* Month Header */}
                   <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
                     <h3 className="text-lg font-bold text-slate-800">
                       {month.toLocaleDateString("en-US", {
@@ -1451,8 +1120,6 @@ const ProjectManager: React.FC = () => {
                       })}
                     </h3>
                   </div>
-
-                  {/* Weekday Header */}
                   <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50/30">
                     {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
                       (d) => (
@@ -1465,8 +1132,6 @@ const ProjectManager: React.FC = () => {
                       )
                     )}
                   </div>
-
-                  {/* Grid */}
                   <div className="grid grid-cols-7 auto-rows-fr">
                     {days.map((day, idx) => {
                       const dayTasks = tasks.filter((t) => {
@@ -1478,10 +1143,8 @@ const ProjectManager: React.FC = () => {
                         current.setHours(0, 0, 0, 0);
                         return current >= start && current <= end;
                       });
-
                       const isToday =
                         day.date.toDateString() === new Date().toDateString();
-
                       return (
                         <div
                           key={idx}
@@ -1502,7 +1165,6 @@ const ProjectManager: React.FC = () => {
                           >
                             {day.date.getDate()}
                           </span>
-
                           <div className="flex-1 flex flex-col gap-1.5">
                             {dayTasks.map((task) => (
                               <div
@@ -1533,8 +1195,6 @@ const ProjectManager: React.FC = () => {
             })}
           </div>
         </div>
-
-        {/* Scroll Tip */}
         <div className="absolute bottom-0 left-0 right-0 p-2 bg-white/90 backdrop-blur-md border-t border-slate-200 flex items-center justify-center text-xs text-slate-500 font-medium z-10">
           <MousePointer size={14} className="mr-2 text-slate-400" />
           Tip: Hold{" "}
@@ -1549,7 +1209,6 @@ const ProjectManager: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen w-full bg-slate-50 text-slate-900 font-sans overflow-hidden relative">
-      {/* --- Top Header Navigation (Transparent) --- */}
       <header className="flex-none px-6 py-4 bg-transparent z-30">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -1563,7 +1222,6 @@ const ProjectManager: React.FC = () => {
               <h1 className="text-xl font-bold text-slate-900 tracking-tight">
                 Project Overview
               </h1>
-              {/* Editable Project Name */}
               <div className="h-6 flex items-center">
                 {isEditingProjectName ? (
                   <form
@@ -1594,8 +1252,6 @@ const ProjectManager: React.FC = () => {
                 )}
               </div>
             </div>
-
-            {/* View Tabs */}
             <div className="ml-6 flex p-1 bg-slate-100 rounded-lg border border-slate-200 hidden sm:flex">
               <button
                 onClick={() => setCurrentView("timeline")}
@@ -1639,7 +1295,6 @@ const ProjectManager: React.FC = () => {
               </button>
             </div>
           </div>
-
           <div className="flex items-center gap-3 self-start md:self-auto">
             <button
               onClick={handleOpenCreateModal}
@@ -1652,7 +1307,6 @@ const ProjectManager: React.FC = () => {
         </div>
       </header>
 
-      {/* --- Main Content Area --- */}
       <main className="flex-1 overflow-hidden relative bg-white border-t border-slate-200">
         {currentView === "timeline" && <TimelineView />}
         {currentView === "board" && <BoardView />}
@@ -1660,7 +1314,6 @@ const ProjectManager: React.FC = () => {
         {currentView === "calendar" && <CalendarView />}
       </main>
 
-      {/* --- Bottom Right Floating Toggle (Timeline <-> Calendar) --- */}
       {(currentView === "timeline" || currentView === "calendar") && (
         <button
           onClick={() =>
@@ -1686,14 +1339,12 @@ const ProjectManager: React.FC = () => {
         </button>
       )}
 
-      {/* --- Add/Edit Task Modal --- */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={editingTaskId ? "Edit Task" : "Create New Task"}
       >
         <form onSubmit={handleSaveTask} className="space-y-5">
-          {/* ... Modal form content remains the same ... */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               Task Name

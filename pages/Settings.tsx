@@ -1,6 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { GlassCard, GlassButton } from '../components/ui/Glass';
-import { UserProfile } from '../types';
+import React, { useState, useEffect, useMemo } from "react";
+import { GlassCard, GlassButton } from "../components/ui/Glass";
+import { UserProfile } from "../types";
+import { crmService } from "../services/crmService";
+import { ROLE_TEMPLATES } from "../templates";
+import { CheckCircle2, User, Building2, Bell } from "lucide-react";
 
 interface SettingsProps {
   user?: UserProfile;
@@ -8,109 +11,267 @@ interface SettingsProps {
 }
 
 const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser }) => {
-  const [activeTab, setActiveTab] = useState('profile');
+  const [activeTab, setActiveTab] = useState("profile");
   const [formData, setFormData] = useState<UserProfile>({
-    name: '',
-    email: '',
-    avatar: '',
-    plan: ''
+    name: "",
+    email: "",
+    avatar: "",
+    plan: "",
   });
+  const [currentRole, setCurrentRole] = useState<string>("sales");
 
+  // Load User Data & Role
   useEffect(() => {
-    if (user) {
-      setFormData(user);
-    }
+    if (user) setFormData(user);
+
+    const unsubscribe = crmService.subscribeSettings((settings) => {
+      if (settings && settings.role) {
+        setCurrentRole(settings.role);
+      }
+    });
+    return () => unsubscribe();
   }, [user]);
 
+  // --- SORTING LOGIC: Selected Role First ---
+  const sortedTemplates = useMemo(() => {
+    const templates = Object.values(ROLE_TEMPLATES);
+    return templates.sort((a: any, b: any) => {
+      if (a.id === currentRole) return -1; // Move selected to top
+      if (b.id === currentRole) return 1;
+      return 0; // Keep original order for others
+    });
+  }, [currentRole]);
+
   const tabs = [
-    { id: 'profile', label: 'Profile' },
-    { id: 'workspace', label: 'Workspace' },
-    { id: 'notifications', label: 'Notifications' },
+    { id: "profile", label: "Profile", icon: User },
+    { id: "workspace", label: "Workspace", icon: Building2 },
+    { id: "notifications", label: "Notifications", icon: Bell },
   ];
 
-  const handleSave = () => {
+  const handleSaveProfile = () => {
     if (onUpdateUser) {
-      // Generate initials from new name
       const initials = formData.name
-        .split(' ')
-        .map(n => n[0])
-        .join('')
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
         .toUpperCase()
         .slice(0, 2);
-      
-      const updatedUser = {
-        ...formData,
-        avatar: initials
-      };
-      
-      onUpdateUser(updatedUser);
-      // Optional: Add toast notification here
+      onUpdateUser({ ...formData, avatar: initials });
       alert("Profile updated successfully!");
     }
   };
 
+  const handleRoleChange = async (roleId: string) => {
+    if (
+      window.confirm(
+        "Changing the workspace template will update your pipeline stages. Continue?"
+      )
+    ) {
+      await crmService.saveUserRole(roleId);
+      setCurrentRole(roleId);
+    }
+  };
+
   return (
-    <div className="max-w-3xl mx-auto">
-      <h2 className="text-xl font-semibold text-slate-900 mb-6">Account Settings</h2>
-      
-      <div className="flex gap-1 bg-slate-100 p-1 rounded-md mb-8 w-fit">
-        {tabs.map(tab => (
-            <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-1.5 text-xs font-medium rounded transition-all ${
-                    activeTab === tab.id 
-                    ? 'bg-white text-slate-900 shadow-sm' 
-                    : 'text-slate-500 hover:text-slate-700'
-                }`}
-            >
-                {tab.label}
-            </button>
-        ))}
+    <div className="w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Centered Header */}
+      <div className="mb-8 text-center">
+        <h2 className="text-2xl font-bold text-slate-900">Settings</h2>
+        <p className="text-slate-500 text-sm mt-1">
+          Manage your account and workspace preferences.
+        </p>
       </div>
 
-      <GlassCard className="p-8 min-h-[400px]">
-        {activeTab === 'profile' && (
-            <div className="space-y-6 max-w-lg">
-                <div className="flex items-center gap-4 mb-8">
-                    <div className="w-16 h-16 rounded-full bg-slate-200 border-2 border-white shadow-sm flex items-center justify-center text-xl font-bold text-slate-500">
-                        {formData.avatar}
-                    </div>
-                    <div>
-                        <GlassButton variant="outline" className="text-xs">Upload New</GlassButton>
-                    </div>
+      <div className="flex flex-col items-center gap-8">
+        {/* CENTERED TABS - Balanced Roundedness */}
+        <div className="w-full flex justify-center">
+          <div className="flex flex-row gap-1 bg-white border border-slate-200 p-1.5 rounded-2xl shadow-sm">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-medium rounded-xl transition-all duration-300 ease-in-out ${
+                    isActive
+                      ? "bg-slate-900 text-white shadow-md scale-[1.02]"
+                      : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                  }`}
+                  title={tab.label}
+                >
+                  <Icon size={18} />
+                  <span
+                    className={`${
+                      isActive ? "block" : "hidden md:block"
+                    } whitespace-nowrap`}
+                  >
+                    {tab.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* CONTENT CARD - Balanced Roundedness */}
+        <div className="w-full max-w-3xl">
+          <GlassCard className="p-6 md:p-10 min-h-[500px] border border-slate-200 shadow-sm bg-white rounded-2xl">
+            {/* --- PROFILE TAB --- */}
+            {activeTab === "profile" && (
+              <div className="space-y-8 max-w-md mx-auto">
+                <div className="text-center md:text-left">
+                  <h3 className="text-lg font-bold text-slate-900 mb-1">
+                    Personal Information
+                  </h3>
+                  <p className="text-sm text-slate-500">
+                    Update your photo and personal details.
+                  </p>
                 </div>
-                <div className="space-y-4">
-                    <div>
-                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Full Name</label>
-                        <input 
-                            type="text" 
-                            value={formData.name}
-                            onChange={(e) => setFormData({...formData, name: e.target.value})}
-                            className="w-full bg-white border border-slate-200 rounded-md px-3 py-2 focus:ring-1 focus:ring-slate-900 focus:border-slate-900 outline-none text-sm transition-all" 
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Email Address</label>
-                        <input 
-                            type="email" 
-                            value={formData.email}
-                            onChange={(e) => setFormData({...formData, email: e.target.value})}
-                            className="w-full bg-white border border-slate-200 rounded-md px-3 py-2 focus:ring-1 focus:ring-slate-900 focus:border-slate-900 outline-none text-sm transition-all" 
-                        />
-                    </div>
+
+                <div className="flex flex-col md:flex-row items-center gap-6">
+                  <div className="w-24 h-24 rounded-2xl bg-slate-100 border-2 border-slate-200 flex items-center justify-center text-3xl font-bold text-slate-400 uppercase shadow-inner">
+                    {formData.avatar || "JD"}
+                  </div>
+                  <div className="flex flex-col gap-2 text-center md:text-left">
+                    <GlassButton
+                      variant="outline"
+                      className="text-xs bg-white hover:bg-slate-50 border-slate-300 rounded-lg"
+                    >
+                      Change Photo
+                    </GlassButton>
+                    <p className="text-[10px] text-slate-400">
+                      JPG, GIF or PNG. Max 1MB.
+                    </p>
+                  </div>
                 </div>
-                <div className="pt-6 border-t border-slate-100 mt-6">
-                    <GlassButton variant="primary" onClick={handleSave}>Save Changes</GlassButton>
+
+                <div className="space-y-5">
+                  <div className="grid gap-1.5">
+                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wide">
+                      Full Name
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) =>
+                        setFormData({ ...formData, name: e.target.value })
+                      }
+                      className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 outline-none text-sm transition-all"
+                    />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wide">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) =>
+                        setFormData({ ...formData, email: e.target.value })
+                      }
+                      className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 outline-none text-sm transition-all"
+                    />
+                  </div>
                 </div>
-            </div>
-        )}
-        {(activeTab === 'workspace' || activeTab === 'notifications') && (
-             <div className="flex items-center justify-center h-full text-slate-400 text-sm">
-                Configuration not available in demo.
-            </div>
-        )}
-      </GlassCard>
+
+                <div className="pt-6 border-t border-slate-100 flex justify-center md:justify-start">
+                  <GlassButton
+                    className="bg-slate-900 text-white hover:bg-slate-800 px-8 rounded-xl"
+                    onClick={handleSaveProfile}
+                  >
+                    Save Changes
+                  </GlassButton>
+                </div>
+              </div>
+            )}
+
+            {/* --- WORKSPACE TAB --- */}
+            {activeTab === "workspace" && (
+              <div>
+                <div className="mb-8 text-center md:text-left">
+                  <h3 className="text-lg font-bold text-slate-900 mb-1">
+                    Workspace Template
+                  </h3>
+                  <p className="text-sm text-slate-500">
+                    Select a preset to customize your pipeline stages. Current
+                    active role is highlighted.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {sortedTemplates.map((template: any) => {
+                    const Icon = template.icon;
+                    const isSelected = currentRole === template.id;
+
+                    return (
+                      <div
+                        key={template.id}
+                        onClick={() =>
+                          !isSelected && handleRoleChange(template.id)
+                        }
+                        className={`relative flex flex-col p-5 rounded-2xl border-2 cursor-pointer transition-all duration-300 ease-spring ${
+                          isSelected
+                            ? "border-slate-900 bg-slate-900 shadow-xl scale-[1.02] order-first" // Selected Styles
+                            : "border-slate-100 bg-white hover:border-slate-300 hover:bg-slate-50" // Unselected Styles
+                        }`}
+                      >
+                        <div className="flex justify-between items-start mb-4">
+                          <div
+                            className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                              isSelected
+                                ? "bg-white/10 text-white"
+                                : "bg-slate-100 text-slate-600"
+                            }`}
+                          >
+                            <Icon size={20} />
+                          </div>
+                          {isSelected && (
+                            <div className="bg-white text-slate-900 rounded-full p-1 shadow-sm animate-in fade-in zoom-in duration-300">
+                              <CheckCircle2 size={16} />
+                            </div>
+                          )}
+                        </div>
+
+                        <h4
+                          className={`font-bold text-sm mb-1 ${
+                            isSelected ? "text-white" : "text-slate-900"
+                          }`}
+                        >
+                          {template.label}
+                        </h4>
+                        <p
+                          className={`text-xs ${
+                            isSelected ? "text-slate-300" : "text-slate-500"
+                          }`}
+                        >
+                          {template.description}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* --- NOTIFICATIONS TAB --- */}
+            {activeTab === "notifications" && (
+              <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-center">
+                <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-4">
+                  <Bell className="text-slate-300" size={32} />
+                </div>
+                <h3 className="text-slate-900 font-semibold mb-1">
+                  Notifications
+                </h3>
+                <p className="text-slate-500 text-sm max-w-xs mx-auto">
+                  Notification preferences will appear here once the feature is
+                  available.
+                </p>
+              </div>
+            )}
+          </GlassCard>
+        </div>
+      </div>
     </div>
   );
 };

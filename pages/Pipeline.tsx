@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { crmService } from "../services/crmService";
 import { authService } from "../services/authService";
 import { Lead, LeadStatus } from "../types";
-import { PIPELINE_STAGES } from "../constants";
+import { ROLE_TEMPLATES } from "../templates"; // Import the templates
 import { GlassCard, Badge } from "../components/ui/Glass";
 import {
   MoreHorizontal,
@@ -49,9 +49,13 @@ const Modal = ({
 
 const Pipeline: React.FC = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
+  // Use default sales stages initially, will update after auth
+  const [currentStages, setCurrentStages] = useState<any[]>(
+    ROLE_TEMPLATES.sales.stages
+  );
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
 
-  // --- Modal & Form State ---
+  // Modal & Form State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLeadId, setEditingLeadId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<Lead>>({
@@ -63,41 +67,50 @@ const Pipeline: React.FC = () => {
     tags: [],
   });
 
-  // --- Refs for Scroll Dragging ---
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, left: 0 });
 
-  /* ================= AUTH SAFE SUBSCRIBE ================= */
+  /* ================= AUTH & SETTINGS SUBSCRIBE ================= */
   useEffect(() => {
     let unsubscribeLeads: (() => void) | null = null;
+    let unsubscribeSettings: (() => void) | null = null;
 
     const unsubAuth = authService.onChange((user) => {
       if (!user) {
         setLeads([]);
-        if (unsubscribeLeads) unsubscribeLeads();
-        unsubscribeLeads = null;
+        unsubscribeLeads?.();
+        unsubscribeSettings?.();
         return;
       }
-      // Use the generic subscribe method from your crmService
+
+      // 1. Subscribe to Role Settings
+      unsubscribeSettings = crmService.subscribeSettings((settings) => {
+        if (settings && settings.role && ROLE_TEMPLATES[settings.role]) {
+          setCurrentStages(ROLE_TEMPLATES[settings.role].stages);
+        } else {
+          setCurrentStages(ROLE_TEMPLATES.sales.stages);
+        }
+      });
+
+      // 2. Subscribe to Leads
       unsubscribeLeads = crmService.subscribeLeads(setLeads);
     });
 
     return () => {
       unsubAuth();
-      if (unsubscribeLeads) unsubscribeLeads();
+      unsubscribeLeads?.();
+      unsubscribeSettings?.();
     };
   }, []);
 
-  /* ================= HELPERS ================= */
-
+  // ... Helpers ...
   const getInitials = (name: string) => {
     if (!name) return "";
     const parts = name.trim().split(" ");
     if (parts.length === 1) return parts[0][0].toUpperCase();
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
-
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat("en-IN", {
       style: "currency",
@@ -105,28 +118,25 @@ const Pipeline: React.FC = () => {
       maximumSignificantDigits: 3,
     }).format(val);
 
-  /* ================= CRUD HANDLERS ================= */
-
-  const handleOpenCreate = (stage: LeadStatus) => {
+  // ... Handlers ...
+  const handleOpenCreate = (stage: string) => {
     setEditingLeadId(null);
     setFormData({
       name: "",
       company: "",
       email: "",
       value: 0,
-      stage: stage,
+      stage: stage as LeadStatus,
       tags: [],
       owner: "Me",
     });
     setIsModalOpen(true);
   };
-
   const handleOpenEdit = (lead: Lead) => {
     setEditingLeadId(lead.id);
     setFormData({ ...lead });
     setIsModalOpen(true);
   };
-
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     const leadData = {
@@ -134,7 +144,6 @@ const Pipeline: React.FC = () => {
       value: Number(formData.value) || 0,
       lastActivity: new Date().toISOString(),
     } as Lead;
-
     try {
       if (editingLeadId) {
         await crmService.updateLead(editingLeadId, leadData);
@@ -144,69 +153,48 @@ const Pipeline: React.FC = () => {
       setIsModalOpen(false);
     } catch (error) {
       console.error("Failed to save lead", error);
-      alert("Error saving lead. Please try again.");
     }
   };
-
   const handleDelete = async () => {
-    if (
-      editingLeadId &&
-      window.confirm("Are you sure you want to delete this lead?")
-    ) {
+    if (editingLeadId && window.confirm("Delete this lead?")) {
       await crmService.deleteLead(editingLeadId);
       setIsModalOpen(false);
     }
   };
 
-  /* ================= DRAG & DROP (CARDS) ================= */
-
   const handleDragStart = (e: React.DragEvent, leadId: string) => {
     setDraggedLeadId(leadId);
     e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", leadId);
-    // Slight delay to allow the ghost image to be created before dimming the card
     setTimeout(() => {
       const el = document.getElementById(`card-${leadId}`);
       if (el) el.style.opacity = "0.4";
     }, 0);
   };
-
   const handleDragEnd = (_e: React.DragEvent, leadId: string) => {
     setDraggedLeadId(null);
     const el = document.getElementById(`card-${leadId}`);
     if (el) el.style.opacity = "1";
   };
-
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
   };
-
-  const handleDrop = async (e: React.DragEvent, stageId: LeadStatus) => {
+  const handleDrop = async (e: React.DragEvent, stageId: string) => {
     e.preventDefault();
     if (!draggedLeadId) return;
-
-    // FIX: Use generic updateLead method since crmService doesn't have updateLeadStage
     await crmService.updateLead(draggedLeadId, {
-      stage: stageId,
+      stage: stageId as LeadStatus,
       lastActivity: new Date().toISOString(),
     });
-
     setDraggedLeadId(null);
   };
-
-  /* ================= DRAG & DROP (CONTAINER SCROLL) ================= */
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button === 2 && containerRef.current) {
       e.preventDefault();
       setIsDragging(true);
-      dragStart.current = {
-        x: e.pageX,
-        left: containerRef.current.scrollLeft,
-      };
+      dragStart.current = { x: e.pageX, left: containerRef.current.scrollLeft };
     }
   };
-
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
       if (!isDragging || !containerRef.current) return;
@@ -217,11 +205,9 @@ const Pipeline: React.FC = () => {
     },
     [isDragging]
   );
-
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
   }, []);
-
   useEffect(() => {
     if (isDragging) {
       window.addEventListener("mousemove", handleMouseMove);
@@ -236,8 +222,6 @@ const Pipeline: React.FC = () => {
     };
   }, [isDragging, handleMouseMove, handleMouseUp]);
 
-  /* ================= UI ================= */
-
   return (
     <>
       <div className="flex flex-col h-full relative overflow-hidden -mx-4 md:-mx-6">
@@ -249,9 +233,8 @@ const Pipeline: React.FC = () => {
           onMouseDown={handleMouseDown}
           onContextMenu={(e) => e.preventDefault()}
         >
-          {/* Layout: vertical dividers between columns */}
           <div className="flex h-full min-w-[1000px] divide-x divide-slate-200/60">
-            {PIPELINE_STAGES.map((stage) => {
+            {currentStages.map((stage) => {
               const stageLeads = leads.filter((l) => l.stage === stage.id);
               const stageTotal = stageLeads.reduce(
                 (acc, curr) => acc + curr.value,
@@ -265,9 +248,11 @@ const Pipeline: React.FC = () => {
                   onDragOver={handleDragOver}
                   onDrop={(e) => handleDrop(e, stage.id)}
                 >
-                  {/* Header with Create Button */}
                   <div className="mb-4 px-1 flex items-center justify-between group pt-1">
                     <div className="flex items-center gap-2">
+                      <div
+                        className={`w-2 h-2 rounded-full ${stage.color}`}
+                      ></div>
                       <h3 className="text-xs font-semibold uppercase tracking-wide">
                         {stage.title}
                       </h3>
@@ -282,15 +267,12 @@ const Pipeline: React.FC = () => {
                       <Plus size={16} />
                     </button>
                   </div>
-
-                  {/* Body */}
                   <div className="flex-1 overflow-y-auto pr-1 pb-10 space-y-3 custom-scrollbar">
                     {stageLeads.length > 0 && (
                       <div className="text-[10px] pb-2 border-b border-slate-100 mb-2 text-slate-400 font-medium tracking-tight">
                         {formatCurrency(stageTotal)} potential
                       </div>
                     )}
-
                     {stageLeads.map((lead) => (
                       <div
                         key={lead.id}
@@ -316,14 +298,12 @@ const Pipeline: React.FC = () => {
                               <Edit2 size={12} />
                             </button>
                           </div>
-
                           <div className="flex items-center gap-2 text-xs text-slate-500">
                             <div className="w-6 h-6 rounded-full bg-slate-50 flex items-center justify-center text-[10px] font-bold text-slate-600 border border-slate-200">
                               {getInitials(lead.name)}
                             </div>
                             <span className="truncate">{lead.email}</span>
                           </div>
-
                           <div className="flex justify-between items-center pt-2 border-t border-slate-50">
                             <span className="text-xs font-bold text-slate-700">
                               {formatCurrency(lead.value)}
@@ -345,7 +325,6 @@ const Pipeline: React.FC = () => {
                         </GlassCard>
                       </div>
                     ))}
-
                     {stageLeads.length === 0 && (
                       <div
                         onClick={() => handleOpenCreate(stage.id)}
@@ -363,8 +342,6 @@ const Pipeline: React.FC = () => {
             })}
           </div>
         </div>
-
-        {/* Tip Footer */}
         <div className="flex-none p-2 border-t border-slate-200 bg-white/80 backdrop-blur-sm flex items-center justify-center text-xs text-slate-500 font-medium z-10 mx-4 md:mx-6 rounded-t-lg">
           <MousePointer size={14} className="mr-2 text-slate-400" />
           Tip: Hold{" "}
@@ -375,14 +352,12 @@ const Pipeline: React.FC = () => {
         </div>
       </div>
 
-      {/* --- ADD / EDIT MODAL --- */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={editingLeadId ? "Edit Lead" : "Add New Lead"}
       >
         <form onSubmit={handleSave} className="space-y-5">
-          {/* Name & Company */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
@@ -396,8 +371,7 @@ const Pipeline: React.FC = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, name: e.target.value })
                 }
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all placeholder:text-slate-400"
-                placeholder="Ex. John Doe"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
               />
             </div>
             <div className="space-y-1.5">
@@ -411,13 +385,10 @@ const Pipeline: React.FC = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, company: e.target.value })
                 }
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all"
-                placeholder="Ex. Acme Corp"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
               />
             </div>
           </div>
-
-          {/* Email */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               Email Address
@@ -429,12 +400,9 @@ const Pipeline: React.FC = () => {
               onChange={(e) =>
                 setFormData({ ...formData, email: e.target.value })
               }
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all"
-              placeholder="john@example.com"
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
             />
           </div>
-
-          {/* Value & Stage */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
@@ -447,7 +415,7 @@ const Pipeline: React.FC = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, value: Number(e.target.value) })
                 }
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
               />
             </div>
             <div className="space-y-1.5">
@@ -462,9 +430,9 @@ const Pipeline: React.FC = () => {
                     stage: e.target.value as LeadStatus,
                   })
                 }
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
               >
-                {PIPELINE_STAGES.map((s) => (
+                {currentStages.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.title}
                   </option>
@@ -472,8 +440,6 @@ const Pipeline: React.FC = () => {
               </select>
             </div>
           </div>
-
-          {/* Actions */}
           <div className="pt-4 flex gap-3">
             {editingLeadId && (
               <button
